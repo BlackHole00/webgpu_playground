@@ -9,8 +9,9 @@ import "core:image/png"
 import la "core:math/linalg"
 import "vendor:glfw"
 import "vendor:wgpu"
+import "renderer"
 
-r: Renderer
+r: renderer.Renderer
 
 logger: runtime.Logger
 window: glfw.WindowHandle
@@ -78,13 +79,13 @@ main :: proc() {
 		context = runtime.default_context()
 		
 		general_state_uniforms.aspect_rateo = (f32)(width) / (f32)(height)
-		renderer_resize_surface(r)
+		renderer.resize_surface(r)
 	})
 
-	assert(renderer_make(&r, Renderer_Descriptor {
+	assert(renderer.create(&r, renderer.Renderer_Descriptor {
 		window = window,
 	}) == nil, "Could not initialize the renderer")
-	defer renderer_delete(&r)
+	defer renderer.destroy(&r)
 	
 	shader_module := wgpu.DeviceCreateShaderModule(r.device, &wgpu.ShaderModuleDescriptor {
 		nextInChain = &wgpu.ShaderModuleWGSLDescriptor {

@@ -1,5 +1,5 @@
 //+private
-package main
+package renderer
 
 import "base:runtime"
 import "core:thread"

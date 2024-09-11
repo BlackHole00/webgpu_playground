@@ -1,4 +1,4 @@
-package main
+package renderer
 
 import "base:runtime"
 import "core:log"
@@ -55,7 +55,6 @@ Renderer :: struct {
 	instance: wgpu.Instance,
 	surface: wgpu.Surface,
 	surface_capabilities: wgpu.SurfaceCapabilities,
-	// surface_preferred_format: wgpu.TextureFormat,
 	adapter: wgpu.Adapter,
 	adapter_info: wgpu.AdapterInfo,
 	adapter_limits: wgpu.SupportedLimits,
@@ -75,7 +74,7 @@ Renderer :: struct {
 	},
 }
 
-renderer_make :: proc(renderer: ^Renderer, descriptor: Renderer_Descriptor) -> (err: Error) {
+create :: proc(renderer: ^Renderer, descriptor: Renderer_Descriptor) -> (err: Error) {
 	renderer.logger = context.logger
 	renderer.window = descriptor.window
 	
@@ -146,12 +145,12 @@ renderer_make :: proc(renderer: ^Renderer, descriptor: Renderer_Descriptor) -> (
 		// wgpu.RenderPipelineRelease(renderer.)
 	}
 		
-	renderer_resize_surface(renderer^)
+	resize_surface(renderer^)
 	
 	return nil
 }
 
-renderer_delete :: proc(renderer: ^Renderer) {
+destroy :: proc(renderer: ^Renderer) {
 	wgpu.BindGroupLayoutRelease(renderer.bind_groups.general_layout)
 	wgpu.BindGroupLayoutRelease(renderer.bind_groups.textures_layout)
 	wgpu.QueueRelease(renderer.queue)
@@ -165,12 +164,12 @@ renderer_delete :: proc(renderer: ^Renderer) {
 	vmem.arena_destroy(&renderer.arena)
 }
 
-renderer_resize_surface_auto :: proc(renderer: Renderer) -> bool {
+resize_surface_auto :: proc(renderer: Renderer) -> bool {
 	width, height := glfw.GetFramebufferSize(renderer.window)
-	return renderer_resize_surface_manual(renderer, [2]uint { (uint)(width), (uint)(height) })
+	return resize_surface_manual(renderer, [2]uint { (uint)(width), (uint)(height) })
 }
 
-renderer_resize_surface_manual :: proc(renderer: Renderer, size: [2]uint) -> bool {
+resize_surface_manual :: proc(renderer: Renderer, size: [2]uint) -> bool {
 	if renderer.surface == nil || renderer.device == nil {
 		return false
 	}
@@ -189,7 +188,7 @@ renderer_resize_surface_manual :: proc(renderer: Renderer, size: [2]uint) -> boo
 	return true
 }
 
-renderer_resize_surface :: proc {
-	renderer_resize_surface_manual,
-	renderer_resize_surface_auto,
+resize_surface :: proc {
+	resize_surface_manual,
+	resize_surface_auto,
 }
