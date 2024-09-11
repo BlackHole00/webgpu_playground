@@ -260,7 +260,7 @@ main :: proc() {
 			entryPoint = "fragment_main",
 			targetCount = 1,
 			targets = &wgpu.ColorTargetState {
-				format = wgpu.SurfaceGetPreferredFormat(r.surface, r.adapter),
+				format = r.surface_capabilities.formats[0],
 				writeMask = wgpu.ColorWriteMaskFlags_All,
 				blend = &wgpu.BlendState {
 					color = wgpu.BlendComponent {
@@ -332,7 +332,7 @@ main :: proc() {
 	
 	now := time.tick_now()
 	
-	format := wgpu.SurfaceGetPreferredFormat(r.surface, r.adapter)
+	format := r.surface_capabilities.formats[0]
 	for !glfw.WindowShouldClose(window) {
 		if glfw.GetKey(window, glfw.KEY_ESCAPE) == glfw.PRESS {
 			glfw.SetWindowShouldClose(window, true)
@@ -342,12 +342,10 @@ main :: proc() {
 		defer free_all(context.temp_allocator)
 		
 		surface_texture := wgpu.SurfaceGetCurrentTexture(r.surface)
+		defer wgpu.TextureRelease(surface_texture.texture)
 		if surface_texture.status != .Success {
 			continue
 		}
-		
-		general_state_uniforms.time = (f32)(glfw.GetTime())
-		wgpu.QueueWriteBuffer(r.queue, general_state_uniform_buffer, 0, &general_state_uniforms, size_of(General_State_Uniforms))
 		
 		surface_view := wgpu.TextureCreateView(surface_texture.texture, &wgpu.TextureViewDescriptor {
 			format = format,
@@ -361,6 +359,9 @@ main :: proc() {
 		assert(surface_view != nil, "Could not obtain a surface texture view")
 		defer wgpu.TextureViewRelease(surface_view)
 
+		general_state_uniforms.time = (f32)(glfw.GetTime())
+		wgpu.QueueWriteBuffer(r.queue, general_state_uniform_buffer, 0, &general_state_uniforms, size_of(General_State_Uniforms))
+
 		command_encoder := wgpu.DeviceCreateCommandEncoder(r.device, nil)
 		assert(command_encoder != nil, "Could not create a command encoder")
 		defer wgpu.CommandEncoderRelease(command_encoder)
@@ -372,10 +373,10 @@ main :: proc() {
 				loadOp = .Clear,
 				storeOp = .Store,
 				clearValue = { 0.1, 0.2, 0.3, 1.0 },
+				depthSlice = wgpu.DEPTH_SLICE_UNDEFINED,
 			},
 		})
 		assert(renderpass_encoder != nil, "Could not create a renderpass encoder")
-		defer wgpu.RenderPassEncoderRelease(renderpass_encoder)
 		
 		wgpu.RenderPassEncoderSetPipeline(renderpass_encoder, render_pipeline)
 		wgpu.RenderPassEncoderSetVertexBuffer(renderpass_encoder, 0, vertex_buffer, 0, size_of(VERTICES))
@@ -386,6 +387,8 @@ main :: proc() {
 		wgpu.RenderPassEncoderMultiDrawIndexedIndirect(renderpass_encoder, indirect_buffer, 0, 1)
 		
 		wgpu.RenderPassEncoderEnd(renderpass_encoder)
+		wgpu.RenderPassEncoderRelease(renderpass_encoder)
+
 		command_buffer := wgpu.CommandEncoderFinish(command_encoder)
 		assert(command_buffer != nil, "Could not create a command buffer")
 		defer wgpu.CommandBufferRelease(command_buffer)

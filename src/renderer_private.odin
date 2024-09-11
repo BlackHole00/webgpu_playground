@@ -8,6 +8,7 @@ import "core:os"
 import vmem "core:mem/virtual"
 import "vendor:glfw"
 import "vendor:wgpu"
+import wgpuglfw "vendor:wgpu/glfwglue"
 
 renderer_check_glfw_window :: proc(window: glfw.WindowHandle) -> bool {
 	glfw.SwapBuffers(window)
@@ -25,13 +26,8 @@ renderer_init_instance :: proc(renderer: ^Renderer) -> bool {
 		BACKENDS :: wgpu.InstanceBackendFlags { .Vulkan, .GL }
 	}
 
-	when ODIN_DEBUG {
-		LOG_LEVEL :: wgpu.LogLevel.Debug
-		FLAGS :: wgpu.InstanceFlags { .Debug, .Validation }
-	} else {
-		LOG_LEVEL :: wgpu.LogLevel.Info
-		FLAGS :: wgpu.InstanceFlags_Default
-	}
+	FLAGS :: wgpu.InstanceFlags { .Debug, .Validation } when ODIN_DEBUG else wgpu.InstanceFlags_Default
+	LOG_LEVEL :: wgpu.LogLevel.Info when #config(WGPU_VERBOSE_LOGS, false) else wgpu.LogLevel.Warn
 	
 	wgpu.SetLogCallback(wgpu_log_callback, renderer)
 	wgpu.SetLogLevel(LOG_LEVEL)
@@ -51,19 +47,7 @@ renderer_init_instance :: proc(renderer: ^Renderer) -> bool {
 }
 
 renderer_init_surface :: proc(renderer: ^Renderer) -> bool {
-	surface_descriptor: wgpu.SurfaceDescriptor
-	windowhandle_get_surfacedescriptor(window, &surface_descriptor)
-	
-	log.debugf("Creating a surface with the following descriptor: %#v", surface_descriptor)
-	when ODIN_OS == .Windows {
-		log.debugf(
-			"Note: Using in chain: %#v",
-			(^wgpu.SurfaceDescriptorFromWindowsHWND)(surface_descriptor.nextInChain)^,
-		)
-	} else do #panic("Unsupported")
-	
-	renderer.surface = wgpu.InstanceCreateSurface(renderer.instance, &surface_descriptor)
-	
+	renderer.surface = wgpuglfw.GetSurface(renderer.instance, renderer.window)
 	return renderer.surface != nil
 }
 
@@ -86,7 +70,7 @@ renderer_init_adapter :: proc(renderer: ^Renderer) -> bool {
 		thread.yield()
 	}
 
-	renderer.adapter_properties = wgpu.AdapterGetProperties(renderer.adapter)
+	renderer.adapter_info = wgpu.AdapterGetInfo(renderer.adapter)
 	renderer.adapter_features = wgpu.AdapterEnumerateFeatures(renderer.adapter, vmem.arena_allocator(&renderer.arena))
 	if limits, limits_ok := wgpu.AdapterGetLimits(renderer.adapter); !limits_ok {
 		log.warnf("Could not get device limits")
@@ -94,7 +78,7 @@ renderer_init_adapter :: proc(renderer: ^Renderer) -> bool {
 		renderer.adapter_limits = limits
 	}
 
-	renderer.surface_preferred_format = wgpu.SurfaceGetPreferredFormat(renderer.surface, renderer.adapter)
+	renderer.surface_capabilities = wgpu.SurfaceGetCapabilities(renderer.surface, renderer.adapter)
 
 	return renderer.adapter != nil
 }
@@ -273,7 +257,7 @@ renderer_init_basic_pipeline :: proc(renderer: ^Renderer) -> bool {
 			entryPoint = "fragment_main",
 			targetCount = 1,
 			targets = &wgpu.ColorTargetState {
-				format = renderer.surface_preferred_format,
+				format = renderer.surface_capabilities.formats[0],
 				writeMask = wgpu.ColorWriteMaskFlags_All,
 			},
 		},

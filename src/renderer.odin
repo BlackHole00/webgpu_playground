@@ -54,9 +54,10 @@ Renderer :: struct {
 	
 	instance: wgpu.Instance,
 	surface: wgpu.Surface,
-	surface_preferred_format: wgpu.TextureFormat,
+	surface_capabilities: wgpu.SurfaceCapabilities,
+	// surface_preferred_format: wgpu.TextureFormat,
 	adapter: wgpu.Adapter,
-	adapter_properties: wgpu.AdapterProperties,
+	adapter_info: wgpu.AdapterInfo,
 	adapter_limits: wgpu.SupportedLimits,
 	adapter_features: []wgpu.FeatureName,
 	device: wgpu.Device,
@@ -110,7 +111,7 @@ renderer_make :: proc(renderer: ^Renderer, descriptor: Renderer_Descriptor) -> (
 	}
 	defer if err != nil do wgpu.AdapterRelease(renderer.adapter)
 
-	log.debugf("Got adapter with properties:\t%#v", renderer.adapter_properties)
+	log.debugf("Got adapter with properties:\t%#v", renderer.adapter_info)
 	log.debugf("Got adapter with limits:\t%#v", renderer.adapter_limits)
 	log.debugf("Got adapter with features:\t%#v", renderer.adapter_features)
 	
@@ -155,6 +156,8 @@ renderer_delete :: proc(renderer: ^Renderer) {
 	wgpu.BindGroupLayoutRelease(renderer.bind_groups.textures_layout)
 	wgpu.QueueRelease(renderer.queue)
 	wgpu.DeviceRelease(renderer.device)
+	wgpu.SurfaceCapabilitiesFreeMembers(renderer.surface_capabilities)
+	wgpu.AdapterInfoFreeMembers(renderer.adapter_info)
 	wgpu.AdapterRelease(renderer.adapter)
 	wgpu.SurfaceRelease(renderer.surface)
 	wgpu.InstanceRelease(renderer.instance)
@@ -177,7 +180,7 @@ renderer_resize_surface_manual :: proc(renderer: Renderer, size: [2]uint) -> boo
 		device = renderer.device,
 		width = (u32)(size.x),
 		height = (u32)(size.y),
-		format = renderer.surface_preferred_format,
+		format = renderer.surface_capabilities.formats[0],
 		usage = { .RenderAttachment },
 		presentMode = .Fifo,
 		alphaMode = .Auto,
