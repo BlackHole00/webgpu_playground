@@ -82,12 +82,12 @@ main :: proc() {
 		renderer.resize_surface(r)
 	})
 
-	assert(renderer.create(&r, renderer.Renderer_Descriptor {
+	assert(renderer.create(&r, renderer.Descriptor {
 		window = window,
 	}) == nil, "Could not initialize the renderer")
 	defer renderer.destroy(&r)
 	
-	shader_module := wgpu.DeviceCreateShaderModule(r.device, &wgpu.ShaderModuleDescriptor {
+	shader_module := wgpu.DeviceCreateShaderModule(r.core.device, &wgpu.ShaderModuleDescriptor {
 		nextInChain = &wgpu.ShaderModuleWGSLDescriptor {
 			sType = .ShaderModuleWGSLDescriptor,
 			code = #load("triangle.wgsl"),
@@ -96,33 +96,33 @@ main :: proc() {
 	assert(shader_module != nil, "Could not compile shader")
 	defer wgpu.ShaderModuleRelease(shader_module)
 
-	vertex_buffer = wgpu.DeviceCreateBufferWithData(r.device, &wgpu.BufferWithDataDescriptor {
+	vertex_buffer = wgpu.DeviceCreateBufferWithData(r.core.device, &wgpu.BufferWithDataDescriptor {
 		usage = { .Vertex },
 	}, VERTICES[:])
 	assert(vertex_buffer != nil, "Could not create a vertex buffer")
 	defer wgpu.BufferRelease(vertex_buffer)
 	
-	index_buffer = wgpu.DeviceCreateBufferWithData(r.device, &wgpu.BufferWithDataDescriptor {
+	index_buffer = wgpu.DeviceCreateBufferWithData(r.core.device, &wgpu.BufferWithDataDescriptor {
 		usage = { .Index },
 	}, INDICES[:])
 	assert(index_buffer != nil, "Could not create a index buffer")
 	defer wgpu.BufferRelease(index_buffer)
 	
-	general_state_uniform_buffer = wgpu.DeviceCreateBuffer(r.device, &wgpu.BufferDescriptor {
+	general_state_uniform_buffer = wgpu.DeviceCreateBuffer(r.core.device, &wgpu.BufferDescriptor {
 		usage = { .CopyDst, .Uniform },
 		size = size_of(General_State_Uniforms),
 	})
 	assert(general_state_uniform_buffer != nil, "Could not create a uniform buffer")
 	defer wgpu.BufferRelease(general_state_uniform_buffer)
 	
-	instance_uniform_buffer = wgpu.DeviceCreateBuffer(r.device, &wgpu.BufferDescriptor {
+	instance_uniform_buffer = wgpu.DeviceCreateBuffer(r.core.device, &wgpu.BufferDescriptor {
 		usage = { .CopyDst, .Uniform },
 		size = size_of(Instance_Uniforms),
 	})
 	assert(instance_uniform_buffer != nil, "Could not create a uniform buffer")
 	defer wgpu.BufferRelease(instance_uniform_buffer)
 	
-	indirect_buffer = wgpu.DeviceCreateBufferWithData(r.device, &wgpu.BufferWithDataDescriptor {
+	indirect_buffer = wgpu.DeviceCreateBufferWithData(r.core.device, &wgpu.BufferWithDataDescriptor {
 		usage = { .Indirect },
 	}, []u32{ 6, 1, 0, 0, 0 })
 	assert(indirect_buffer != nil, "Could not create a buffer")
@@ -131,7 +131,7 @@ main :: proc() {
 	image, image_err := png.load_from_file("res/gradient.png", allocator = context.temp_allocator)
 	assert(image_err == nil, "Could not read the image file")
 	
-	texture = wgpu.DeviceCreateTexture(r.device, &wgpu.TextureDescriptor {
+	texture = wgpu.DeviceCreateTexture(r.core.device, &wgpu.TextureDescriptor {
 		usage = { .TextureBinding, .CopyDst },
 		dimension = ._2D,
 		size = { (u32)(image.width), (u32)(image.height), 1 },
@@ -143,7 +143,7 @@ main :: proc() {
 	defer wgpu.TextureRelease(texture)
 
 	wgpu.QueueWriteTexture(
-		r.queue, 
+		r.core.queue, 
 		&wgpu.ImageCopyTexture {
 			texture = texture,
 			mipLevel = 0,
@@ -171,7 +171,7 @@ main :: proc() {
 	assert(texture_view != nil, "Could not create a texture view")
 	defer wgpu.TextureViewRelease(texture_view)
 
-	sampler = wgpu.DeviceCreateSampler(r.device, &wgpu.SamplerDescriptor {
+	sampler = wgpu.DeviceCreateSampler(r.core.device, &wgpu.SamplerDescriptor {
 		addressModeU = .ClampToEdge,
 		addressModeV = .ClampToEdge,
 		addressModeW = .ClampToEdge,
@@ -186,7 +186,7 @@ main :: proc() {
 	assert(sampler != nil, "Could not create a sampler")
 	defer wgpu.SamplerRelease(sampler)
 	
-	bind_group_layout = wgpu.DeviceCreateBindGroupLayout(r.device, &wgpu.BindGroupLayoutDescriptor {
+	bind_group_layout = wgpu.DeviceCreateBindGroupLayout(r.core.device, &wgpu.BindGroupLayoutDescriptor {
 		entryCount = 4,
 		entries = raw_data([]wgpu.BindGroupLayoutEntry {
 			wgpu.BindGroupLayoutEntry {
@@ -227,14 +227,14 @@ main :: proc() {
 	assert(bind_group_layout != nil, "Could not create a pipeline layout")
 	defer wgpu.BindGroupLayoutRelease(bind_group_layout)
 	
-	render_pipeline_layout = wgpu.DeviceCreatePipelineLayout(r.device, &wgpu.PipelineLayoutDescriptor {
+	render_pipeline_layout = wgpu.DeviceCreatePipelineLayout(r.core.device, &wgpu.PipelineLayoutDescriptor {
 		bindGroupLayoutCount = 1,
 		bindGroupLayouts = &bind_group_layout,
 	})
 	assert(render_pipeline_layout != nil, "Could not create a pipeline layout")
 	defer wgpu.PipelineLayoutRelease(render_pipeline_layout)
 	
-	render_pipeline = wgpu.DeviceCreateRenderPipeline(r.device, &wgpu.RenderPipelineDescriptor {
+	render_pipeline = wgpu.DeviceCreateRenderPipeline(r.core.device, &wgpu.RenderPipelineDescriptor {
 		primitive = wgpu.PrimitiveState {
 			topology = .TriangleList,
 			frontFace = .CCW,
@@ -261,7 +261,7 @@ main :: proc() {
 			entryPoint = "fragment_main",
 			targetCount = 1,
 			targets = &wgpu.ColorTargetState {
-				format = r.surface_capabilities.formats[0],
+				format = r.core.surface_capabilities.formats[0],
 				writeMask = wgpu.ColorWriteMaskFlags_All,
 				blend = &wgpu.BlendState {
 					color = wgpu.BlendComponent {
@@ -286,7 +286,7 @@ main :: proc() {
 	assert(render_pipeline != nil, "Could not create a render pipeline")
 	defer wgpu.RenderPipelineRelease(render_pipeline)
 
-	bind_group = wgpu.DeviceCreateBindGroup(r.device, &wgpu.BindGroupDescriptor {
+	bind_group = wgpu.DeviceCreateBindGroup(r.core.device, &wgpu.BindGroupDescriptor {
 		layout = bind_group_layout,
 		entryCount = 4,
 		entries = raw_data([]wgpu.BindGroupEntry {
@@ -325,24 +325,24 @@ main :: proc() {
 	
 	width, height := glfw.GetWindowSize(window)
 	instance_uniforms.proj = la.matrix4_perspective(la.PI / 4.0, (f32)(width) / (f32)(height), 0.01, 100.0)
-	wgpu.QueueWriteBuffer(r.queue, instance_uniform_buffer, 0, &instance_uniforms, size_of(Instance_Uniforms))
+	wgpu.QueueWriteBuffer(r.core.queue, instance_uniform_buffer, 0, &instance_uniforms, size_of(Instance_Uniforms))
 	
-	for !wgpu.DevicePoll(r.device, false, nil) {
+	for !wgpu.DevicePoll(r.core.device, false, nil) {
 		thread.yield()
 	}
 	
 	now := time.tick_now()
 	
-	format := r.surface_capabilities.formats[0]
+	format := r.core.surface_capabilities.formats[0]
 	for !glfw.WindowShouldClose(window) {
 		if glfw.GetKey(window, glfw.KEY_ESCAPE) == glfw.PRESS {
 			glfw.SetWindowShouldClose(window, true)
 		}
-		defer wgpu.DevicePoll(r.device, false, nil)
+		defer wgpu.DevicePoll(r.core.device, false, nil)
 		defer glfw.PollEvents()
 		defer free_all(context.temp_allocator)
 		
-		surface_texture := wgpu.SurfaceGetCurrentTexture(r.surface)
+		surface_texture := wgpu.SurfaceGetCurrentTexture(r.core.surface)
 		defer wgpu.TextureRelease(surface_texture.texture)
 		if surface_texture.status != .Success {
 			continue
@@ -361,9 +361,9 @@ main :: proc() {
 		defer wgpu.TextureViewRelease(surface_view)
 
 		general_state_uniforms.time = (f32)(glfw.GetTime())
-		wgpu.QueueWriteBuffer(r.queue, general_state_uniform_buffer, 0, &general_state_uniforms, size_of(General_State_Uniforms))
+		wgpu.QueueWriteBuffer(r.core.queue, general_state_uniform_buffer, 0, &general_state_uniforms, size_of(General_State_Uniforms))
 
-		command_encoder := wgpu.DeviceCreateCommandEncoder(r.device, nil)
+		command_encoder := wgpu.DeviceCreateCommandEncoder(r.core.device, nil)
 		assert(command_encoder != nil, "Could not create a command encoder")
 		defer wgpu.CommandEncoderRelease(command_encoder)
 		
@@ -394,8 +394,8 @@ main :: proc() {
 		assert(command_buffer != nil, "Could not create a command buffer")
 		defer wgpu.CommandBufferRelease(command_buffer)
 		
-		wgpu.QueueSubmit(r.queue, { command_buffer })
-		wgpu.SurfacePresent(r.surface)
+		wgpu.QueueSubmit(r.core.queue, { command_buffer })
+		wgpu.SurfacePresent(r.core.surface)
 
 		duration := time.tick_since(now)
 		now = time.tick_now()
@@ -406,7 +406,7 @@ main :: proc() {
 		glfw.SetWindowTitle(window, new_window_title)
 	}
 
-	for !wgpu.DevicePoll(r.device, false, nil) {
+	for !wgpu.DevicePoll(r.core.device, false, nil) {
 		thread.yield()
 	}
 }

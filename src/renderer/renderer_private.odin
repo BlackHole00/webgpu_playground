@@ -1,125 +1,8 @@
 //+private
 package renderer
 
-import "base:runtime"
-import "core:thread"
-import "core:log"
 import "core:os"
-import vmem "core:mem/virtual"
-import "vendor:glfw"
 import "vendor:wgpu"
-import wgpuglfw "vendor:wgpu/glfwglue"
-
-renderer_check_glfw_window :: proc(window: glfw.WindowHandle) -> bool {
-	glfw.SwapBuffers(window)
-
-	_, error := glfw.GetError()
-	return error == glfw.NO_WINDOW_CONTEXT
-}
-
-renderer_init_instance :: proc(renderer: ^Renderer) -> bool {
-	when ODIN_OS == .Windows {
-		BACKENDS :: wgpu.InstanceBackendFlags { .Vulkan, .DX12, .DX11, .GL }
-	} else when ODIN_OS == .Darwin {
-		BACKENDS :: wgpu.InstanceBackendFlags { .Metal, .Vulkan, .GL }
-	} else {
-		BACKENDS :: wgpu.InstanceBackendFlags { .Vulkan, .GL }
-	}
-
-	FLAGS :: wgpu.InstanceFlags { .Debug, .Validation } when ODIN_DEBUG else wgpu.InstanceFlags_Default
-	LOG_LEVEL :: wgpu.LogLevel.Info when #config(WGPU_VERBOSE_LOGS, false) else wgpu.LogLevel.Warn
-	
-	wgpu.SetLogCallback(wgpu_log_callback, renderer)
-	wgpu.SetLogLevel(LOG_LEVEL)
-	
-	instance_descriptor := wgpu.InstanceDescriptor {
-		nextInChain = &wgpu.InstanceExtras {
-			sType = .InstanceExtras,
-			backends = BACKENDS,
-			flags = FLAGS,
-		},
-	}
-	log.debugf("Creating an instance using the following descriptor: %#v", instance_descriptor)
-	log.debugf("Note: Using in chain: %#v", (^wgpu.InstanceExtras)(instance_descriptor.nextInChain)^)
-
-	renderer.instance = wgpu.CreateInstance(&instance_descriptor)
-	return renderer.instance != nil
-}
-
-renderer_init_surface :: proc(renderer: ^Renderer) -> bool {
-	renderer.surface = wgpuglfw.GetSurface(renderer.instance, renderer.window)
-	return renderer.surface != nil
-}
-
-renderer_init_adapter :: proc(renderer: ^Renderer) -> bool {
-	request_data := Adapter_Request_Data { renderer, false }
-
-	adapter_options := wgpu.RequestAdapterOptions {
-		compatibleSurface = renderer.surface,
-		powerPreference = .HighPerformance,
-	}
-	log.debugf("Creating an adapter with the following options: %#v", adapter_options)
-	
-	wgpu.InstanceRequestAdapter(
-		renderer.instance,
-		&adapter_options,
-		wgpu_request_adapter_callback,
-		&request_data,
-	)
-	for !request_data.is_done {
-		thread.yield()
-	}
-
-	renderer.adapter_info = wgpu.AdapterGetInfo(renderer.adapter)
-	renderer.adapter_features = wgpu.AdapterEnumerateFeatures(renderer.adapter, vmem.arena_allocator(&renderer.arena))
-	if limits, limits_ok := wgpu.AdapterGetLimits(renderer.adapter); !limits_ok {
-		log.warnf("Could not get device limits")
-	} else {
-		renderer.adapter_limits = limits
-	}
-
-	renderer.surface_capabilities = wgpu.SurfaceGetCapabilities(renderer.surface, renderer.adapter)
-
-	return renderer.adapter != nil
-}
-
-renderer_check_adapter_capabilities :: proc(renderer: ^Renderer) -> bool {
-	// return slice.contains(renderer.adapter_features, wgpu.FeatureName.MultiDrawIndirect) &&
-	// 	slice.contains(renderer.adapter_features, wgpu.FeatureName.MultiDrawIndirectCount) &&
-	// 	renderer.adapter_limits.limits.maxBindGroups >= 1
-	return renderer.adapter_limits.limits.maxBindGroups >= 1
-}
-
-renderer_init_device :: proc(renderer: ^Renderer) -> bool {
-	request_data := Adapter_Request_Data { renderer, false }
-	
-	device_descriptor := wgpu.DeviceDescriptor {
-		requiredFeatureCount = 1,
-		requiredFeatures = raw_data([]wgpu.FeatureName { .MultiDrawIndirect }),
-		deviceLostCallback = wgpu_device_lost_callback,
-	}
-	log.debugf("Creating a device with the following descriptor: %#v", device_descriptor)
-	
-	wgpu.AdapterRequestDevice(
-		renderer.adapter, 
-		&device_descriptor,
-		wgpu_request_device_callback,
-		&request_data,
-	)
-	for !request_data.is_done {
-		thread.yield()
-	}
-
-	if limits, limits_ok := wgpu.DeviceGetLimits(renderer.device); !limits_ok {
-		log.warnf("Could not get device limits")
-	} else {
-		renderer.device_limits = limits
-	}
-
-	renderer.queue = wgpu.DeviceGetQueue(renderer.device)
-
-	return renderer.device != nil && renderer.queue != nil
-}
 
 renderer_init_pipelines :: proc(renderer: ^Renderer) -> bool {
 	return renderer_init_basic_pipeline(renderer)
@@ -127,7 +10,7 @@ renderer_init_pipelines :: proc(renderer: ^Renderer) -> bool {
 
 renderer_init_bind_group_layouts :: proc(renderer: ^Renderer) -> bool {
 	renderer.bind_groups.general_layout = wgpu.DeviceCreateBindGroupLayout(
-		renderer.device, 
+		renderer.core.device, 
 		&wgpu.BindGroupLayoutDescriptor {
 			label = "general_bind_group_layout",
 			entryCount = 2,
@@ -156,7 +39,7 @@ renderer_init_bind_group_layouts :: proc(renderer: ^Renderer) -> bool {
 	}
 	
 	renderer.bind_groups.textures_layout = wgpu.DeviceCreateBindGroupLayout(
-		renderer.device,
+		renderer.core.device,
 		&wgpu.BindGroupLayoutDescriptor {
 			label = "texture_bind_group_layout",
 			entryCount = 2,
@@ -194,7 +77,7 @@ renderer_init_basic_pipeline :: proc(renderer: ^Renderer) -> bool {
 	}
 	
 	basic_shader_module := wgpu.DeviceCreateShaderModule(
-		renderer.device, 
+		renderer.core.device,
 		&wgpu.ShaderModuleDescriptor {
 			nextInChain = &wgpu.ShaderModuleWGSLDescriptor {
 				sType = .ShaderModuleWGSLDescriptor,
@@ -207,7 +90,7 @@ renderer_init_basic_pipeline :: proc(renderer: ^Renderer) -> bool {
 	}
 	defer wgpu.ShaderModuleRelease(basic_shader_module)
 
-	basic_pipeline_layout := wgpu.DeviceCreatePipelineLayout(renderer.device, &wgpu.PipelineLayoutDescriptor {
+	basic_pipeline_layout := wgpu.DeviceCreatePipelineLayout(renderer.core.device, &wgpu.PipelineLayoutDescriptor {
 		bindGroupLayoutCount = 2,
 		bindGroupLayouts = raw_data([]wgpu.BindGroupLayout {
 			renderer.bind_groups.general_layout,
@@ -220,7 +103,7 @@ renderer_init_basic_pipeline :: proc(renderer: ^Renderer) -> bool {
 	defer wgpu.PipelineLayoutRelease(basic_pipeline_layout)
 	
 	// TODO(Vicix): Do layout
-	wgpu.DeviceCreateRenderPipeline(renderer.device, &wgpu.RenderPipelineDescriptor {
+	wgpu.DeviceCreateRenderPipeline(renderer.core.device, &wgpu.RenderPipelineDescriptor {
 		primitive = wgpu.PrimitiveState {
 			topology = .TriangleList,
 			frontFace = .CCW,
@@ -257,7 +140,7 @@ renderer_init_basic_pipeline :: proc(renderer: ^Renderer) -> bool {
 			entryPoint = "fragment_main",
 			targetCount = 1,
 			targets = &wgpu.ColorTargetState {
-				format = renderer.surface_capabilities.formats[0],
+				format = renderer.core.surface_capabilities.formats[0],
 				writeMask = wgpu.ColorWriteMaskFlags_All,
 			},
 		},
@@ -271,97 +154,4 @@ renderer_init_basic_pipeline :: proc(renderer: ^Renderer) -> bool {
 	return true
 }
 
-@(private="file")
-Adapter_Request_Data :: struct {
-	renderer: ^Renderer,
-	is_done: bool,
-}
 
-@(private="file")
-Device_Request_Data :: Adapter_Request_Data
-
-@(private="file")
-wgpu_request_adapter_callback :: proc "c" (
-	status: wgpu.RequestAdapterStatus,
-	result: wgpu.Adapter,
-	message: cstring,
-	user_data: rawptr,
-) {
-	request_data := (^Adapter_Request_Data)(user_data)
-	renderer := request_data.renderer
-	
-	context = runtime.default_context()
-	context.logger = renderer.logger
-	
-	switch status {
-	case .Unavailable:
-	case .Unknown:
-	case .Error:
-		log.errorf("Could not request an adapter. Got the following message: %s", message)
-	case .Success:
-		if message != nil && message != "" {
-			log.debugf("Obtained an adapter with the following message: %s", message)
-		}
-	}
-	
-	renderer.adapter = result
-	request_data.is_done = true
-}
-
-@(private="file")
-wgpu_request_device_callback :: proc "c" (
-	status: wgpu.RequestDeviceStatus,
-	result: wgpu.Device,
-	message: cstring,
-	user_data: rawptr,
-) {
-	request_data := (^Device_Request_Data)(user_data)
-	renderer := request_data.renderer
-	
-	context = runtime.default_context()
-	context.logger = renderer.logger
-	
-	switch status {
-	case .Unknown:
-	case .Error:
-		log.errorf("Could not request a device. Got the following message: %s", message)
-	case .Success:
-		if message != nil && message != "" {
-			log.debugf("Obtained a device with the following message: %s", message)
-		}
-	}
-	
-	renderer.device = result
-	request_data.is_done = true
-}
-
-@(private="file")
-wgpu_device_lost_callback :: proc "c" (reason: wgpu.DeviceLostReason, message: cstring, userdata: rawptr) {
-	r := (^Renderer)(userdata)
-	
-	context = runtime.default_context()
-	context.logger = r.logger
-
-	log.panicf("Lost device: %s\n", message)
-}
-
-@(private="file")
-wgpu_log_callback :: proc "c" (level: wgpu.LogLevel, message: cstring, userdata: rawptr) {
-	r := (^Renderer)(userdata)
-	
-	context = runtime.default_context()
-	context.logger = r.logger
-
-	switch level {
-	case .Off:
-	case .Trace:
-	case .Debug:
-		log.debugf("[WGPU] %s", message)
-	case .Info:
-		log.infof("[WGPU] %s", message)
-	case .Warn:
-		log.warnf("[WGPU] %s", message)
-	case .Error:
-		log.errorf("[WGPU] %s", message)
-	}
-}
