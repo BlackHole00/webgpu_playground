@@ -11,7 +11,7 @@ import "vendor:wgpu"
 import wgpuglfw "vendor:wgpu/glfwglue"
 
 core_init :: proc(renderer: ^Renderer) -> (err: Error) {
-	if !core_check_glfw_window(renderer.window) {
+	if !core_check_glfw_window(renderer.external.window) {
 		log.errorf("The provided window does have a context registered. Please provide a glfw window with the GLFW_CLIENT_API=GLFW_NO_API window hint")
 		return Common_Error.Invalid_Glfw_Window
 	}
@@ -95,7 +95,7 @@ core_instance_init :: proc(renderer: ^Renderer) -> bool {
 }
 
 core_surface_init :: proc(renderer: ^Renderer) -> bool {
-	renderer.core.surface = wgpuglfw.GetSurface(renderer.core.instance, renderer.window)
+	renderer.core.surface = wgpuglfw.GetSurface(renderer.core.instance, renderer.external.window)
 	return renderer.core.surface != nil
 }
 

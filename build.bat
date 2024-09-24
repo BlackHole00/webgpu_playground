@@ -1,2 +1,2 @@
 @echo off
-odin build src -out=build/app.exe -strict-style -vet
+odin build src -collection:shared=shared -out=build/app.exe -strict-style -vet
