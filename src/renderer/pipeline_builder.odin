@@ -1,4 +1,4 @@
-//+private
+#+private
 package renderer
 
 import "core:os"

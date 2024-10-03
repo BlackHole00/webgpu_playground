@@ -1,12 +1,11 @@
-//+private
+#+private
 package renderer
 
 import "core:math"
 import "core:log"
 import "vendor:wgpu"
-import "vendor:glfw"
-import ui "vendor:microui"
 import "shared:utils"
+import wgputils "wgpu"
 
 DEPTH_BUFFER_FORMAT :: wgpu.TextureFormat.Depth24Plus
 UI_MAX_QUADS_COUNT :: 1024
@@ -42,6 +41,16 @@ VERTEX_LAYOUTS := [Vertex_Layout_Type]wgpu.VertexBufferLayout {
 }
 #assert(size_of(Basic_Vertex) == size_of([3]f32) + size_of([2]f32) + size_of([3]f32))
 #assert(size_of(MicroUI_Vertex) == size_of([3]f32) + size_of([3]f32) + size_of([4]f32))
+
+renderer_get_static_buffer :: proc(renderer: Renderer, type: Static_Buffer_Type) -> wgpu.Buffer {
+	return renderer.resources.static_buffers[type]
+}
+renderer_set_static_buffer :: proc(renderer: ^Renderer, type: Static_Buffer_Type, buffer: wgpu.Buffer) {
+	renderer.resources.static_buffers[type] = buffer
+}
+renderer_get_dynamic_buffer :: proc(renderer: ^Renderer, type: Dynamic_Buffer_Type) -> ^wgputils.Dynamic_Buffer {
+	return &renderer.resources.dynamic_buffers[type]
+}
 
 BINDGROUP_LAYOUT_DESCRIPTORS := [Bindgroup_Type]wgpu.BindGroupLayoutDescriptor {
 	.Draw_Command = wgpu.BindGroupLayoutDescriptor {
@@ -143,6 +152,9 @@ resources_init :: proc(renderer: ^Renderer) -> (err: Error) {
 }
 
 resources_deinit :: proc(renderer: ^Renderer) {
+	resources_deinit_buffers(renderer)
+	resources_deinit_textures(renderer^)
+
 	for pipeline in renderer.resources.pipelines {
 		if pipeline != nil do wgpu.RenderPipelineRelease(pipeline)
 	}
@@ -151,12 +163,6 @@ resources_deinit :: proc(renderer: ^Renderer) {
 	}
 	for sampler in renderer.resources.samplers {
 		if sampler != nil do wgpu.SamplerRelease(sampler)
-	}
-	for texture in renderer.resources.textures {
-		if texture != nil do wgpu.TextureRelease(texture)
-	}
-	for buffer in renderer.resources.buffers {
-		if buffer != nil do wgpu.BufferRelease(buffer)
 	}
 	for bindgroup_layout in renderer.resources.bindgroup_layouts {
 		if bindgroup_layout != nil do wgpu.BindGroupLayoutRelease(bindgroup_layout)
@@ -180,130 +186,84 @@ resources_init_bindgroup_layouts :: proc(renderer: ^Renderer) -> bool {
 	return utils.typedarray_ensure_all_values_valid(renderer.resources.bindgroup_layouts)
 }
 
-resources_init_buffers :: proc(renderer: ^Renderer) -> bool {
-	// renderer.resources.buffers[.Staging_MicroUI] = wgpu.DeviceCreateBuffer(
-	// 	renderer.core.device,
-	// 	&wgpu.BufferDescriptor {
-	// 		label = "MicroUI Staging Buffer",
-	// 		usage = { .MapWrite, .CopySrc },
-	// 		size = size_of(MicroUI_Vertex) * 4 * 1024, // 1024 quads
-	// 	},
-	// )
-	renderer.resources.buffers[.Vertex_MicroUI] = wgpu.DeviceCreateBuffer(
-		renderer.core.device,
-		&wgpu.BufferDescriptor {
-			label = "MicroUI Vertex Buffer",
-			usage = { .Vertex, .CopyDst },
-			size = size_of(MicroUI_Vertex) * UI_MAX_VERTICES_COUNT, // 1024 quads
-		},
-	)
-	renderer.resources.buffers[.Index_MicroUI] = wgpu.DeviceCreateBuffer(
-		renderer.core.device,
-		&wgpu.BufferDescriptor {
-			label = "MicroUI Index Buffer",
-			usage = { .Index, .CopyDst },
-			size = size_of(u16) * UI_MAX_INDICES_COUNT, // 1024 quads
-		},
-	)
-	renderer.resources.buffers[.Uniform_Draw_Command_Application] = wgpu.DeviceCreateBuffer(
-		renderer.core.device,
-		&wgpu.BufferDescriptor {
-			label = "Draw Command Application Uniform Buffer",
-			usage = { .CopyDst, .Uniform },
-			size = (u64)(math.next_power_of_two(size_of(Draw_Command_Application_Uniform))),
-		},
-	)
-	// TODO(Vicix): Use Dynamic Offsets
-	renderer.resources.buffers[.Uniform_Draw_Command_Instance] = wgpu.DeviceCreateBuffer(
-		renderer.core.device,
-		&wgpu.BufferDescriptor {
-			label = "Draw Command Instance Uniform Buffer",
-			usage = { .CopyDst, .Uniform },
-			size = size_of(Draw_Command_Instance_Uniform),
-		},
-	)
+// resources_init_textures :: proc(renderer: ^Renderer) -> bool {
+// 	window_width, window_heigth := glfw.GetWindowSize(renderer.external.window)
 
-	return utils.typedarray_ensure_all_values_valid(renderer.resources.buffers)
-}
+// 	// TODO(Vicix): Actually use a texture atlas
+// 	renderer.resources.textures[.General_Atlas] = wgpu.DeviceCreateTexture(
+// 		renderer.core.device, 
+// 		&wgpu.TextureDescriptor {
+// 			label = "General Atlas Texture",
+// 			usage = { .TextureBinding, .CopyDst },
+// 			dimension = ._2D,
+// 			size = { 1, 1, 1 },
+// 			format = .RGBA8Unorm,
+// 			mipLevelCount = 1,
+// 			sampleCount = 1,
+// 			viewFormatCount = 1,
+// 			viewFormats = raw_data([]wgpu.TextureFormat {
+// 				.RGBA8Unorm,
+// 			}),
+// 		},
+// 	)
+// 	renderer.resources.textures[.MicroUI_Atlas] = wgpu.DeviceCreateTexture(
+// 		renderer.core.device,
+// 		&wgpu.TextureDescriptor {
+// 			label = "MicroUI Atlas Texture",
+// 			usage = { .TextureBinding, .CopyDst },
+// 			dimension = ._2D,
+// 			size = { ui.DEFAULT_ATLAS_WIDTH, ui.DEFAULT_ATLAS_HEIGHT, 1 },
+// 			format = .R8Unorm,
+// 			mipLevelCount = 1,
+// 			sampleCount = 1,
+// 			viewFormatCount = 1,
+// 			viewFormats = raw_data([]wgpu.TextureFormat {
+// 				.R8Unorm,
+// 			}),
+// 		},
+// 	)
+// 	renderer.resources.textures[.Surface_Depth] = wgpu.DeviceCreateTexture(
+// 		renderer.core.device,
+// 		&wgpu.TextureDescriptor {
+// 			label = "Surface Depth",
+// 			usage = { .CopySrc, .CopyDst, .RenderAttachment },
+// 			dimension = ._2D,
+// 			size = { (u32)(window_width), (u32)(window_heigth), 1 },
+// 			format = DEPTH_BUFFER_FORMAT,
+// 			mipLevelCount = 1,
+// 			sampleCount = 1,
+// 			viewFormatCount = 1,
+// 			viewFormats = raw_data([]wgpu.TextureFormat {
+// 				DEPTH_BUFFER_FORMAT,
+// 			}),
+// 		},
+// 	)
 
-resources_init_textures :: proc(renderer: ^Renderer) -> bool {
-	window_width, window_heigth := glfw.GetWindowSize(renderer.external.window)
+// 	if !utils.typedarray_ensure_all_values_valid(renderer.resources.textures) {
+// 		return false
+// 	}
 
-	// TODO(Vicix): Actually use a texture atlas
-	renderer.resources.textures[.General_Atlas] = wgpu.DeviceCreateTexture(
-		renderer.core.device, 
-		&wgpu.TextureDescriptor {
-			label = "General Atlas Texture",
-			usage = { .TextureBinding, .CopyDst },
-			dimension = ._2D,
-			size = { 1, 1, 1 },
-			format = .RGBA8Unorm,
-			mipLevelCount = 1,
-			sampleCount = 1,
-			viewFormatCount = 1,
-			viewFormats = raw_data([]wgpu.TextureFormat {
-				.RGBA8Unorm,
-			}),
-		},
-	)
-	renderer.resources.textures[.MicroUI_Atlas] = wgpu.DeviceCreateTexture(
-		renderer.core.device,
-		&wgpu.TextureDescriptor {
-			label = "MicroUI Atlas Texture",
-			usage = { .TextureBinding, .CopyDst },
-			dimension = ._2D,
-			size = { ui.DEFAULT_ATLAS_WIDTH, ui.DEFAULT_ATLAS_HEIGHT, 1 },
-			format = .R8Unorm,
-			mipLevelCount = 1,
-			sampleCount = 1,
-			viewFormatCount = 1,
-			viewFormats = raw_data([]wgpu.TextureFormat {
-				.R8Unorm,
-			}),
-		},
-	)
-	renderer.resources.textures[.Surface_Depth] = wgpu.DeviceCreateTexture(
-		renderer.core.device,
-		&wgpu.TextureDescriptor {
-			label = "Surface Depth",
-			usage = { .CopySrc, .CopyDst, .RenderAttachment },
-			dimension = ._2D,
-			size = { (u32)(window_width), (u32)(window_heigth), 1 },
-			format = DEPTH_BUFFER_FORMAT,
-			mipLevelCount = 1,
-			sampleCount = 1,
-			viewFormatCount = 1,
-			viewFormats = raw_data([]wgpu.TextureFormat {
-				DEPTH_BUFFER_FORMAT,
-			}),
-		},
-	)
+// 	log.info(ui.DEFAULT_ATLAS_WIDTH, ui.DEFAULT_ATLAS_HEIGHT, len(ui.default_atlas_alpha))
+// 	wgpu.QueueWriteTexture(
+// 		renderer.core.queue,
+// 		&wgpu.ImageCopyTexture {
+// 			texture = renderer.resources.textures[.MicroUI_Atlas],
+// 			mipLevel = 0,
+// 			origin = { 0, 0, 0 },
+// 			aspect = .All,
+// 		},
+// 		&ui.default_atlas_alpha,
+// 		len(ui.default_atlas_alpha),
+// 		&wgpu.TextureDataLayout {
+// 			offset = 0,
+// 			bytesPerRow = ui.DEFAULT_ATLAS_WIDTH,
+// 			rowsPerImage = ui.DEFAULT_ATLAS_HEIGHT,
+// 		},
+// 		&wgpu.Extent3D { ui.DEFAULT_ATLAS_WIDTH, ui.DEFAULT_ATLAS_HEIGHT, 1 },
+// 	)
 
-	if !utils.typedarray_ensure_all_values_valid(renderer.resources.textures) {
-		return false
-	}
-
-	log.info(ui.DEFAULT_ATLAS_WIDTH, ui.DEFAULT_ATLAS_HEIGHT, len(ui.default_atlas_alpha))
-	wgpu.QueueWriteTexture(
-		renderer.core.queue,
-		&wgpu.ImageCopyTexture {
-			texture = renderer.resources.textures[.MicroUI_Atlas],
-			mipLevel = 0,
-			origin = { 0, 0, 0 },
-			aspect = .All,
-		},
-		&ui.default_atlas_alpha,
-		len(ui.default_atlas_alpha),
-		&wgpu.TextureDataLayout {
-			offset = 0,
-			bytesPerRow = ui.DEFAULT_ATLAS_WIDTH,
-			rowsPerImage = ui.DEFAULT_ATLAS_HEIGHT,
-		},
-		&wgpu.Extent3D { ui.DEFAULT_ATLAS_WIDTH, ui.DEFAULT_ATLAS_HEIGHT, 1 },
-	)
-
-	return true
-}
+// 	return true
+// }
 
 resources_init_samplers :: proc(renderer: ^Renderer) -> bool {
 	renderer.resources.samplers[.Generic] = wgpu.DeviceCreateSampler(
@@ -343,10 +303,8 @@ resources_init_samplers :: proc(renderer: ^Renderer) -> bool {
 }
 
 resources_init_bindgroups :: proc(renderer: ^Renderer) -> bool {
-	general_atlas_view := wgpu.TextureCreateView(renderer.resources.textures[.General_Atlas])
+	general_atlas_view := wgpu.TextureCreateView(renderer.resources.dynamic_textures[.Texture_Atlas].handle)
 	defer wgpu.TextureViewRelease(general_atlas_view)
-	microui_atlas_view := wgpu.TextureCreateView(renderer.resources.textures[.MicroUI_Atlas])
-	defer wgpu.TextureViewRelease(microui_atlas_view)
 
 	renderer.resources.bindgroups[.Draw_Command] = wgpu.DeviceCreateBindGroup(
 		renderer.core.device,
@@ -357,14 +315,14 @@ resources_init_bindgroups :: proc(renderer: ^Renderer) -> bool {
 			entries = raw_data([]wgpu.BindGroupEntry {
 				wgpu.BindGroupEntry {
 					binding = 0,
-					buffer = renderer.resources.buffers[.Uniform_Draw_Command_Application],
+					buffer = renderer.resources.static_buffers[.Uniform_Application_State],
 					offset = 0,
 					size = (u64)(math.next_power_of_two((size_of(Draw_Command_Application_Uniform)))),
 				},
 				// TODO(Vicix): Allow for dynamic offsets
 				wgpu.BindGroupEntry {
 					binding = 1,
-					buffer = renderer.resources.buffers[.Uniform_Draw_Command_Instance],
+					buffer = renderer.resources.dynamic_buffers[.Uniform_Pass_States].handle,
 					offset = 0,
 					size = size_of(Draw_Command_Instance_Uniform),
 				},
@@ -384,7 +342,7 @@ resources_init_bindgroups :: proc(renderer: ^Renderer) -> bool {
 				},
 				wgpu.BindGroupEntry {
 					binding = 1,
-					textureView = microui_atlas_view,
+					textureView = general_atlas_view,
 				},
 				wgpu.BindGroupEntry {
 					binding = 2,

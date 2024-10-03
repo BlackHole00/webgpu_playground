@@ -1,6 +1,6 @@
 package renderer
 
-import wgpuutils "wgpu"
+import wgputils "wgpu"
 import "base:runtime"
 import "core:log"
 import vmem "core:mem/virtual"
@@ -46,9 +46,12 @@ Renderer :: struct {
 	},
 	
 	resources: struct {
-		buffers: [Buffer_Type]wgpu.Buffer,
+		static_buffers: [Static_Buffer_Type]wgpu.Buffer,
+		dynamic_buffers: [Dynamic_Buffer_Type]wgputils.Dynamic_Buffer,
 
-		textures: [Texture_Type]wgpu.Texture,
+		static_textures: [Static_Texture_Type]wgpu.Texture,
+		dynamic_textures: [Dynamic_Texture_Type]wgputils.Dynamic_Texture,
+
 		samplers: [Sampler_Type]wgpu.Sampler,
 
 		vertex_layouts: [Vertex_Layout_Type]wgpu.VertexBufferLayout,
@@ -56,6 +59,9 @@ Renderer :: struct {
 		bindgroups: [Bindgroup_Type]wgpu.BindGroup,
 		pipelines: [Render_Pipeline_Type]wgpu.RenderPipeline,
 	},
+
+	model_manager: Model_Manager,
+	texture_manager: Texture_Manager,
 
 	frame: struct {
 		surface_texture: wgpu.SurfaceTexture,
@@ -68,7 +74,6 @@ create :: proc(renderer: ^Renderer, descriptor: Descriptor) -> (err: Error) {
 	renderer.logger = context.logger
 	renderer.properties.clear_color = descriptor.clear_color
 	renderer.external.window = descriptor.window
-	renderer.external.ui_context = descriptor.ui_context
 	
 	if err = vmem.arena_init_growing(&renderer.arena); err != nil {
 		log.errorf("Could not create a memory arena")
@@ -88,6 +93,16 @@ create :: proc(renderer: ^Renderer, descriptor: Descriptor) -> (err: Error) {
 		log.errorf("Could not initialize the renderer resources: Got error %v", err)
 		return err
 	}
+
+	modelmanager_create(
+		&renderer.model_manager,
+		&renderer.resources.dynamic_buffers[.Model_Vertices],
+		&renderer.resources.dynamic_buffers[.Model_Indices],
+	)
+	texturemanager_create(
+		&renderer.texture_manager,
+		&renderer.resources.dynamic_textures[.Texture_Atlas],
+	)
 	
 	resize_surface(renderer)
 	
@@ -95,6 +110,9 @@ create :: proc(renderer: ^Renderer, descriptor: Descriptor) -> (err: Error) {
 }
 
 destroy :: proc(renderer: ^Renderer) {
+	texturemanager_destroy(renderer.texture_manager)
+	modelmanager_destroy(renderer.model_manager)
+
 	resources_deinit(renderer)
 	core_deinit(renderer^)
 
@@ -111,15 +129,11 @@ resize_surface_manual :: proc(renderer: ^Renderer, size: [2]uint) -> bool {
 		return false
 	}
 	
-	if new_depth_texture, ok := wgpuutils.texture_resize(
-		renderer.resources.textures[.Surface_Depth],
-		renderer.core.device,
-		renderer.core.queue,
+	if !wgputils.dynamictexture_resize(
+		&renderer.resources.dynamic_textures[.Surface_Depth_Buffer],
 		wgpu.Extent3D { (u32)(size.x), (u32)(size.y), 1 },
-		"Surface Depth Buffer",
-		false,
-	); ok {
-		renderer.resources.textures[.Surface_Depth] = new_depth_texture
+	) {
+		log.warnf("Could not resize the Surface Depth Buffer texture")
 	}
 
 	// TODO: Support for NO VSYNC and support for FifoRelaxed, if present

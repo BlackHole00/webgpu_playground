@@ -1,25 +1,25 @@
 package renderer
 
 import "vendor:wgpu"
-import "vendor:glfw"
+// import "vendor:glfw"
 import ui "vendor:microui"
 
 begin_frame :: proc(renderer: ^Renderer) {
 	renderer.frame.surface_texture = wgpu.SurfaceGetCurrentTexture(renderer.core.surface)
-	window_width, window_heigth := glfw.GetWindowSize(renderer.external.window)
+	// window_width, window_heigth := glfw.GetWindowSize(renderer.external.window)
 
-	wgpu.QueueWriteBuffer(
-		renderer.core.queue,
-		renderer.resources.buffers[.Uniform_Draw_Command_Application],
-		0,
-		&Draw_Command_Application_Uniform {
-			time = (f32)(glfw.GetTime()),
-			viewport_size = { (u32)(window_width), (u32)(window_heigth) },
-		},
-		size_of(Draw_Command_Application_Uniform),
-	)
+	// wgpu.QueueWriteBuffer(
+	// 	renderer.core.queue,
+	// 	renderer.resources.buffers[.Uniform_Draw_Command_Application],
+	// 	0,
+	// 	&Draw_Command_Application_Uniform {
+	// 		time = (f32)(glfw.GetTime()),
+	// 		viewport_size = { (u32)(window_width), (u32)(window_heigth) },
+	// 	},
+	// 	size_of(Draw_Command_Application_Uniform),
+	// )
 
-	depth_view := wgpu.TextureCreateView(renderer.resources.textures[.Surface_Depth])
+	depth_view := wgpu.TextureCreateView(renderer.resources.dynamic_textures[.Surface_Depth_Buffer].handle)
 	surface_view := wgpu.TextureCreateView(renderer.frame.surface_texture.texture)
 	defer wgpu.TextureViewRelease(depth_view)
 	defer wgpu.TextureViewRelease(surface_view)
@@ -325,22 +325,22 @@ render_ui :: proc(renderer: ^Renderer) {
 		}
 	}
 
-	wgpu.QueueWriteBuffer(
-		renderer.core.queue,
-		renderer.resources.buffers[.Vertex_MicroUI],
-		0,
-		&vertices[0],
-		(uint)(vertex_count * size_of(MicroUI_Vertex)),
-	)
-	wgpu.QueueWriteBuffer(
-		renderer.core.queue,
-		renderer.resources.buffers[.Index_MicroUI],
-		0,
-		&indices[0],
-		(uint)(index_count * size_of(u16)),
-	)
+	// wgpu.QueueWriteBuffer(
+	// 	renderer.core.queue,
+	// 	renderer.resources.buffers[.Vertex_MicroUI],
+	// 	0,
+	// 	&vertices[0],
+	// 	(uint)(vertex_count * size_of(MicroUI_Vertex)),
+	// )
+	// wgpu.QueueWriteBuffer(
+	// 	renderer.core.queue,
+	// 	renderer.resources.buffers[.Index_MicroUI],
+	// 	0,
+	// 	&indices[0],
+	// 	(uint)(index_count * size_of(u16)),
+	// )
 
-	depth_view := wgpu.TextureCreateView(renderer.resources.textures[.Surface_Depth])
+	depth_view := wgpu.TextureCreateView(renderer.resources.dynamic_textures[.Surface_Depth_Buffer].handle)
 	surface_view := wgpu.TextureCreateView(renderer.frame.surface_texture.texture)
 	defer wgpu.TextureViewRelease(depth_view)
 	defer wgpu.TextureViewRelease(surface_view)
@@ -366,14 +366,14 @@ render_ui :: proc(renderer: ^Renderer) {
 		},
 	)
 
-	ui_vertices_size := wgpu.BufferGetSize(renderer.resources.buffers[.Vertex_MicroUI])
-	ui_indices_size := wgpu.BufferGetSize(renderer.resources.buffers[.Index_MicroUI])
-	wgpu.RenderPassEncoderSetPipeline(render_pass, renderer.resources.pipelines[.MicroUI_To_Rendertarget])
-	wgpu.RenderPassEncoderSetBindGroup(render_pass, 0, renderer.resources.bindgroups[.Draw_Command])
-	wgpu.RenderPassEncoderSetBindGroup(render_pass, 1, renderer.resources.bindgroups[.Textures])
-	wgpu.RenderPassEncoderSetVertexBuffer(render_pass, 0, renderer.resources.buffers[.Vertex_MicroUI], 0, ui_vertices_size)
-	wgpu.RenderPassEncoderSetIndexBuffer(render_pass, renderer.resources.buffers[.Index_MicroUI], .Uint16, 0, ui_indices_size)
-	wgpu.RenderPassEncoderDrawIndexed(render_pass, (u32)(index_count), 1, 0, 0, 0)
+	// ui_vertices_size := wgpu.BufferGetSize(renderer.resources.buffers[.Vertex_MicroUI])
+	// ui_indices_size := wgpu.BufferGetSize(renderer.resources.buffers[.Index_MicroUI])
+	// wgpu.RenderPassEncoderSetPipeline(render_pass, renderer.resources.pipelines[.MicroUI_To_Rendertarget])
+	// wgpu.RenderPassEncoderSetBindGroup(render_pass, 0, renderer.resources.bindgroups[.Draw_Command])
+	// wgpu.RenderPassEncoderSetBindGroup(render_pass, 1, renderer.resources.bindgroups[.Textures])
+	// wgpu.RenderPassEncoderSetVertexBuffer(render_pass, 0, renderer.resources.buffers[.Vertex_MicroUI], 0, ui_vertices_size)
+	// wgpu.RenderPassEncoderSetIndexBuffer(render_pass, renderer.resources.buffers[.Index_MicroUI], .Uint16, 0, ui_indices_size)
+	// wgpu.RenderPassEncoderDrawIndexed(render_pass, (u32)(index_count), 1, 0, 0, 0)
 	
 	wgpu.RenderPassEncoderEnd(render_pass)
 	wgpu.RenderPassEncoderRelease(render_pass)

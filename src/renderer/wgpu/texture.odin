@@ -37,6 +37,7 @@ texture_get_size :: proc(texture: wgpu.Texture) -> wgpu.Extent3D {
 // - ok
 //
 // TODO(Vicix): Do logging
+@(deprecated="Prefer using a Dynamic_Texture instead")
 texture_resize :: proc(
 	texture: wgpu.Texture,
 	device: wgpu.Device,
