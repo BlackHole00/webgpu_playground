@@ -1,14 +1,18 @@
 package renderer_wgpu
 
+import "base:runtime"
 import "core:log"
-import "core:slice"
 import "core:math"
+import "core:slice"
 import "vendor:wgpu"
+import "shared:utils"
 
 Dynamic_Buffer :: struct {
+	allocator: runtime.Allocator,
 	device: wgpu.Device,
 	queue: wgpu.Queue,
 	handle: wgpu.Buffer,
+	label: cstring,
 	length: uint,
 	capacity: uint,
 }
@@ -18,24 +22,28 @@ dynamicbuffer_create :: proc(
 	device: wgpu.Device,
 	queue: wgpu.Queue,
 	descriptor: wgpu.BufferDescriptor,
+	allocator := context.allocator,
 ) -> bool {
 	descriptor := descriptor
 
 	if wgpu.BufferUsage.CopySrc not_in descriptor.usage || wgpu.BufferUsage.CopyDst not_in descriptor.usage {
 		log.errorf(
-			"The provided Dynamic Buffer usages are not valid. A Dynamic Buffer requires the usages {{ .CopySrc, .CopyDst }}. Found usages %v instead",
+			"The provided Dynamic Buffer usages for buffer %s are not valid. A Dynamic Buffer requires the usages " +
+			"{{ .CopySrc, .CopyDst }}. Found usages %v instead",
+			descriptor.label,
 			descriptor.usage,
 		)
 		return false
 	}
-	if descriptor.label != nil {
-		log.warnf("The provided Dynamic Buffer descriptor contains a label. Dynamic Buffers do not support labels")
-	}
 
-	descriptor.label = "Dynamic Buffer"
+	label := utils.cstring_clone(descriptor.label)
+
+	descriptor.label = label
 	descriptor.size = max(32, descriptor.size)
 
+	buffer.allocator = allocator
 	buffer.handle = wgpu.DeviceCreateBuffer(device, &descriptor)
+	buffer.label = label
 	buffer.capacity = (uint)(descriptor.size)
 	buffer.length = 0
 	buffer.device = device
@@ -49,10 +57,19 @@ dynamicbuffer_destroy :: proc(buffer: Dynamic_Buffer) {
 		wgpu.BufferDestroy(buffer.handle)
 		wgpu.BufferRelease(buffer.handle)
 	}
+	delete(buffer.label, buffer.allocator)
 }
 
 dynamicbuffer_as_buffer :: proc(buffer: Dynamic_Buffer) -> wgpu.Buffer {
 	return buffer.handle
+}
+
+dynamicbuffer_len :: proc(buffer: Dynamic_Buffer) -> uint {
+	return buffer.length
+}
+
+dynamicbuffer_cap :: proc(buffer: Dynamic_Buffer) -> uint {
+	return buffer.capacity
 }
 
 dynamicbuffer_resize :: proc(buffer: ^Dynamic_Buffer, length: uint) -> bool {
@@ -79,6 +96,10 @@ dynamicbuffer_append_bytes :: proc(buffer: ^Dynamic_Buffer, data: []byte) -> boo
 	return true
 }
 
+dynamicbuffer_append_value :: proc(buffer: ^Dynamic_Buffer, value: ^$T) -> bool {
+	return dynamicbuffer_append_bytes(slice.from_ptr(value, 1))
+}
+
 dynamicbuffer_append_buffer :: proc(
 	buffer: ^Dynamic_Buffer,
 	source: wgpu.Buffer,
@@ -91,7 +112,7 @@ dynamicbuffer_append_buffer :: proc(
 	}
 
 	command_encoder := wgpu.DeviceCreateCommandEncoder(buffer.device, &wgpu.CommandEncoderDescriptor {
-		label = "Dynamic Buffer Append Buffer",
+		label = buffer.label,
 	})
 	defer wgpu.CommandEncoderRelease(command_encoder)
 	if command_encoder == nil {
@@ -127,12 +148,12 @@ dynamicbuffer_append :: proc {
 dynamicbuffer_reserve :: proc(buffer: ^Dynamic_Buffer, capacity: uint) -> bool {
 	usages := wgpu.BufferGetUsage(buffer.handle)
 	new_buffer := wgpu.DeviceCreateBuffer(buffer.device, &wgpu.BufferDescriptor {
-		label = "Dynamic Buffer",
+		label = buffer.label,
 		usage = usages,
 		size = (u64)(capacity),
 	})
 	if new_buffer == nil {
-		log.warnf("A Dynamic Buffer failed to resize")
+		log.warnf("A Dynamic Buffer %s failed to resize", buffer.label)
 		return false
 	}
 

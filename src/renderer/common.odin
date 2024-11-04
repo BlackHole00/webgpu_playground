@@ -1,6 +1,7 @@
 package renderer
 
 import "base:runtime"
+import "shader_preprocessor"
 
 Render_Pipeline_Type :: enum {
 	// Deferred_To_GBuffers,
@@ -46,6 +47,7 @@ Basic_Instance_Data :: struct {
 }
 
 Common_Error :: enum {
+	Generic_Error,
 	Invalid_Glfw_Window,
 	Instance_Creation_Failed,
 	Surface_Creation_Failed,
@@ -62,6 +64,7 @@ Common_Error :: enum {
 
 Error :: union #shared_nil {
 	runtime.Allocator_Error,
+	shader_preprocessor.Error,
 	Common_Error,
 }
 

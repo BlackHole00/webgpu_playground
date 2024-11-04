@@ -1,8 +1,9 @@
 #+private
 package renderer
 
-import "core:os"
+import "core:log"
 import "vendor:wgpu"
+import "shader_preprocessor"
 
 Render_Pipeline_Descriptor :: struct {
 	source_location: string,
@@ -21,12 +22,22 @@ Render_Pipeline_Descriptor :: struct {
 	multisample: bool,
 }
 
-renderpipeline_build :: proc(renderer: ^Renderer, descriptor: ^Render_Pipeline_Descriptor) -> (wgpu.RenderPipeline, bool) #optional_ok {
+renderpipeline_build :: proc(
+	renderer: ^Renderer,
+	descriptor: ^Render_Pipeline_Descriptor,
+) -> (wgpu.RenderPipeline, bool) #optional_ok {
 	bind_group_layouts: [32]wgpu.BindGroupLayout
 	vertex_buffer_layouts: [8]wgpu.VertexBufferLayout
 
-	source, source_ok := os.read_entire_file(descriptor.source_location, context.temp_allocator)
-	if !source_ok {
+	source, preprocess_err := shader_preprocessor.preprocess(
+		&renderer.shader_preprocessor, descriptor.source_location, context.temp_allocator,
+	)
+	if preprocess_err != nil {
+		log.errorf(
+			"Could not create pipeline based on shader %s: Could not preprocess the source, got error %v",
+			descriptor.source_location,
+			preprocess_err,
+		)
 		return nil, false
 	}
 

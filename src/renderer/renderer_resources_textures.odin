@@ -75,6 +75,7 @@ resources_init_dynamic_textures :: proc(renderer: ^Renderer) -> bool {
 			viewFormats = raw_data([]wgpu.TextureFormat {
 				DEPTH_BUFFER_FORMAT,
 			}),
+			label = "Surface Depth Buffer",
 		},
 		.Texture_Atlas = wgpu.TextureDescriptor {
 			usage = { .TextureBinding, .CopySrc, .CopyDst },
@@ -87,6 +88,7 @@ resources_init_dynamic_textures :: proc(renderer: ^Renderer) -> bool {
 			viewFormats = raw_data([]wgpu.TextureFormat {
 				.RGBA8Unorm,
 			}),
+			label = "Texture Atlas",
 		},
 	}
 

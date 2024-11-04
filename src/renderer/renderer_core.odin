@@ -12,7 +12,10 @@ import wgpuglfw "vendor:wgpu/glfwglue"
 
 core_init :: proc(renderer: ^Renderer) -> (err: Error) {
 	if !core_check_glfw_window(renderer.external.window) {
-		log.errorf("The provided window does have a context registered. Please provide a glfw window with the GLFW_CLIENT_API=GLFW_NO_API window hint")
+		log.errorf(
+			"The provided window does have a context registered. Please provide a glfw window with the " +
+			"GLFW_CLIENT_API=GLFW_NO_API window hint",
+		)
 		return Common_Error.Invalid_Glfw_Window
 	}
 	defer if err != nil do core_deinit(renderer^)

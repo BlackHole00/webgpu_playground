@@ -1,0 +1,38 @@
+#pragma once
+
+alias Layout = u32;
+alias Model = u32;
+alias Texture = u32;
+alias Object = u32;
+
+struct Layout_Info {
+    indices_count: u32,
+    vertex_sizes: array<u32, 8>,
+}
+
+struct Model_Info {
+    layout: Layout,
+    first_uberindex_offset: u32,
+    uberindex_count: u32,
+    textures: array<Texture, 8>,
+}
+
+struct Texture_Info {
+    atlas_location: vec2u,
+    size: vec2u,
+}
+
+struct Object_Info {
+    model: Model,
+    object_matrix: mat4x4f,
+}
+
+struct Draw_Call_Info {
+    object: Object,
+}
+
+struct Draw_Batch_Info {
+    view_matrix: mat4x4f,
+    projection_matrix: mat4x4f,
+}
+

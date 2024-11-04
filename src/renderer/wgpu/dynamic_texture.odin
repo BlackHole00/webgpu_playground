@@ -1,15 +1,20 @@
 package renderer_wgpu
 
+import "base:runtime"
 import "core:log"
+import "core:slice"
 import "vendor:wgpu"
+import "shared:utils"
 
 Dynamic_Texture :: struct {
+	allocator: runtime.Allocator,
 	handle: wgpu.Texture,
+	label: cstring,
 	size: wgpu.Extent3D,
 	memory_size: wgpu.Extent3D,
 	device: wgpu.Device,
 	queue: wgpu.Queue,
-	view_format: Maybe(wgpu.TextureFormat),
+	view_formats: []wgpu.TextureFormat,
 }
 
 dynamictexture_create :: proc(
@@ -17,27 +22,23 @@ dynamictexture_create :: proc(
 	device: wgpu.Device,
 	queue: wgpu.Queue,
 	descriptor: wgpu.TextureDescriptor,
+	allocator := context.allocator,
 ) -> bool {
 	descriptor := descriptor
 
 	if wgpu.TextureUsage.CopySrc not_in descriptor.usage || wgpu.TextureUsage.CopyDst not_in descriptor.usage {
 		log.errorf(
-			"The provided Dynamic Texture usages are not valid. A Dynamic Texture requires the usages {{ .CopySrc, .CopyDst }}. Found usages %v instead",
+			"The provided Dynamic Texture usages are not valid. A Dynamic Texture requires the usages " +
+			"{{ .CopySrc, .CopyDst }}. Found usages %v instead",
 			descriptor.usage,
 		)
 		return false
 	}
-	if descriptor.viewFormatCount != 1 {
-		log.warnf(
-			"The provided Dynamic Texture View Formats are not valid. A Dynamic Texture only supports one view format: expected 1 format, found %d",
-			descriptor.viewFormatCount,
-		)
-	}
-	if descriptor.label != nil {
-		log.warnf("The provided Dynamic Texture descriptor contains a label. Dynamic Textures do not support labels")
-	}
 
-	descriptor.label = "Dynamic Texture"
+	label := utils.cstring_clone(descriptor.label, allocator)
+	view_formats := slice.clone(slice.from_ptr(descriptor.viewFormats, (int)(descriptor.viewFormatCount)), allocator)
+
+	descriptor.label = label
 	descriptor.size = wgpu.Extent3D {
 		max(32, descriptor.size.width),
 		max(32, descriptor.size.height),
@@ -49,7 +50,9 @@ dynamictexture_create :: proc(
 	texture.memory_size = descriptor.size
 	texture.device = device
 	texture.queue = queue
-	texture.view_format = descriptor.viewFormats[0] if descriptor.viewFormatCount > 0 else nil
+	texture.label = label
+	texture.view_formats = view_formats
+	texture.allocator = allocator
 
 	return texture.handle != nil
 }
@@ -59,6 +62,9 @@ dynamictexture_destroy :: proc(texture: Dynamic_Texture) {
 		wgpu.TextureDestroy(texture.handle)
 		wgpu.TextureRelease(texture.handle)
 	}
+
+	delete(texture.label, texture.allocator)
+	delete(texture.view_formats, texture.allocator)
 }
 
 dynamictexture_as_texture :: proc(texture: Dynamic_Texture) -> wgpu.Texture {
@@ -73,21 +79,16 @@ dynamictexture_resize :: proc(texture: ^Dynamic_Texture, memory_size: wgpu.Exten
 	texture_size := texture_get_size(texture.handle)
 	texture_format := wgpu.TextureGetFormat(texture.handle)
 
-	texture_view_format, texture_has_view_format := texture.view_format.?
-
-	view_format_count := 1 if texture_has_view_format else 0
-	view_formats := []wgpu.TextureFormat { texture_view_format } if texture_has_view_format else []wgpu.TextureFormat {}
-
 	new_texture := wgpu.DeviceCreateTexture(texture.device, &wgpu.TextureDescriptor {
 		usage = wgpu.TextureGetUsage(texture.handle),
 		dimension = wgpu.TextureGetDimension(texture.handle),
-		label = "Dynamic Texture",
+		label = texture.label,
 		size = memory_size,
 		format = texture_format,
 		mipLevelCount = wgpu.TextureGetMipLevelCount(texture.handle),
 		sampleCount = wgpu.TextureGetSampleCount(texture.handle),
-		viewFormatCount = (uint)(view_format_count),
-		viewFormats = raw_data(view_formats),
+		viewFormatCount = (uint)(len(texture.view_formats)),
+		viewFormats = raw_data(texture.view_formats),
 	})
 	if new_texture == nil {
 		return false
@@ -136,6 +137,9 @@ dynamictexture_resize :: proc(texture: ^Dynamic_Texture, memory_size: wgpu.Exten
 			},
 			texture,
 		)
+	} else {
+		wgpu.TextureDestroy(texture.handle)
+		wgpu.TextureRelease(texture.handle)
 	}
 
 	texture.handle = new_texture

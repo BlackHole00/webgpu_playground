@@ -7,12 +7,17 @@ import wgputils "wgpu"
 
 Static_Buffer_Type :: enum {
 	Uniform_Application_State,
+	Layout_Info,
 }
 
 Dynamic_Buffer_Type :: enum {
 	Model_Indices,
 	Model_Vertices,
 	Uniform_Pass_States,
+}
+
+Mirrored_Buffer_Type :: enum {
+	Model_Info,
 }
 
 resources_init_buffers :: proc(renderer: ^Renderer) -> (ok: bool) {
@@ -28,6 +33,10 @@ resources_init_buffers :: proc(renderer: ^Renderer) -> (ok: bool) {
 		log.errorf("Could not init the dynamic buffers")
 		return false
 	}
+	if !resources_init_mirrored_buffers(renderer) {
+		log.errorf("Could not init the mirrored buffers")
+		return false
+	}
 
 	return true
 }
@@ -37,6 +46,12 @@ resources_init_static_buffers :: proc(renderer: ^Renderer) -> bool {
 		.Uniform_Application_State = {
 			usage = { .Uniform, .CopyDst },
 			size = size_of(Draw_Command_Application_Uniform),
+			label = "Uniform Application State",
+		},
+		.Layout_Info = {
+			usage = { .Storage, .CopyDst },
+			size = size_of(Layout_Info) * MAX_LAYOUTS,
+			label = "Layout Info",
 		},
 	}
 
@@ -59,12 +74,15 @@ resources_init_dynamic_buffers :: proc(renderer: ^Renderer) -> bool {
 		.Uniform_Pass_States = {
 			usage = { .Uniform, .CopySrc, .CopyDst },
 			size = size_of(Draw_Command_Application_Uniform) * 8,
+			label = "Uniform Pass States",
 		},
 		.Model_Vertices = {
-			usage = { .Vertex, .CopySrc, .CopyDst },
+			usage = { .Storage, .CopySrc, .CopyDst },
+			label = "Model Vertices",
 		},
 		.Model_Indices = {
-			usage = { .Index, .CopySrc, .CopyDst },
+			usage = { .Storage, .CopySrc, .CopyDst },
+			label = "Model Indices",
 		},
 	}
 
@@ -83,6 +101,30 @@ resources_init_dynamic_buffers :: proc(renderer: ^Renderer) -> bool {
 	return true
 }
 
+resources_init_mirrored_buffers :: proc(renderer: ^Renderer) -> bool {
+	BUFFER_DESCRIPTORS := [Mirrored_Buffer_Type]wgpu.BufferDescriptor {
+		.Model_Info = {
+			usage = { .Storage, .CopySrc, .CopyDst },
+			size = size_of(Draw_Command_Application_Uniform) * 8,
+			label = "Uniform Pass States",
+		},
+	}
+
+	for descriptor, buffer in BUFFER_DESCRIPTORS {
+		if !wgputils.dynamicbuffer_create(
+			&renderer.resources.mirrored_buffers[buffer],
+			renderer.core.device,
+			renderer.core.queue,
+			descriptor,
+		) {
+			log.errorf("Could not initialize the required dynamic mirrored buffer: %v", buffer)
+			return false
+		}
+	}
+
+	return true
+}
+
 resources_deinit_buffers :: proc(renderer: ^Renderer) {
 	for type in Static_Buffer_Type {
 		if buffer := renderer_get_static_buffer(renderer^, type); buffer != nil {
@@ -92,6 +134,10 @@ resources_deinit_buffers :: proc(renderer: ^Renderer) {
 	for type in Dynamic_Buffer_Type {
 		buffer := renderer_get_dynamic_buffer(renderer, type)
 		wgputils.dynamicbuffer_destroy(buffer^)
+	}
+	for type in Mirrored_Buffer_Type {
+		buffer := renderer_get_mirrored_buffer(renderer, type)
+		wgputils.mirroredbuffer_destroy(buffer^)
 	}
 }
 

@@ -16,7 +16,7 @@ register_model :: proc(renderer: ^Renderer, obj_file: string, mtl_file: Maybe(st
 		unimplemented("register_model does not yet support mtl files")
 	}
 
-	model, model_ok := modelmanager_register_model(&renderer.model_manager, obj_file)
+	model, model_ok := modelmanager_register_model(renderer.model_manager, obj_file)
 	if !model_ok {
 		log.warnf("Could not load model %s", obj_file)
 		return INVALID_MODEL, false

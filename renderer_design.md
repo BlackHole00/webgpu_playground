@@ -1,24 +1,16 @@
 # Renderer design
 
 Entirely gpu based. This needs:
-- metadata buffer:
-  - buffer metadata (let's try to not hardcode stuff)
-  - layout infos [128]
-  - model infos [dynamic]
-  - textures infos [dynamic]
-- vertices buffer
-- indices buffer
-- a single texture atlas
+- layout buffer [128]
+- model buffer [dynamic]
+- textures buffer [dynamic]
+- vertices buffer [dynamic]
+- indices buffer [dynamic]
+- a single texture atlas [dynamic]
 
 # Buffers
 The metadata buffer should follow the definitions:
 ```go
-Buffe_Metadata :: struct {
-  layout_infos_range   : [2]u32, // in form [a, b)
-  model_infos_range    : [2]u32, // in form [a, b)
-  textures_infos_range : [2]u32, // in form [a, b)
-}
-
 Layout_Info :: struct {
   indices_count : u32, // in range 0..8
   vertex_sizes  : [8]u32,

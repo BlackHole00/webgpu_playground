@@ -1,0 +1,9 @@
+#include <stdlib/types.wgsli>
+#include <stdlib/constants.wgsli>
+
+@group(0) @binding(0) var<storage, read> mr_layout_infos: array<Layout_Info, layout_count>;
+@group(0) @binding(1) var<storage, read> mr_model_infos: array<Model_Info>;
+@group(0) @binding(2) var<storage, read> mr_texture_infos: array<Texture_Info>;
+@group(0) @binding(3) var<storage, read> mr_vertices: array<u32>;
+@group(0) @binding(4) var<storage, read> mr_indices: array<u32>;
+@group(0) @binding(3) var mr_texture_atlas: texture_2d<f32>;

@@ -3,7 +3,6 @@ package main
 import "base:runtime"
 import "core:log"
 import "core:fmt"
-import "core:thread"
 import "core:time"
 import "vendor:glfw"
 import "vendor:wgpu"
@@ -42,8 +41,15 @@ main :: proc() {
 	}) == nil, "Could not initialize the renderer")
 	defer renderer.destroy(&r)
 
-	_, model_ok := renderer.register_model(&r, "res/model.obj")
-	assert(model_ok)
+	// pp: shader_preprocessor.Shader_Preprocessor
+	// assert(shader_preprocessor.create(&pp) == nil)
+	// shader_preprocessor.add_include_path(&pp, "res/shaders")
+	// preprocess, pp_ok := shader_preprocessor.preprocess(&pp, "res/single_obj_draw.wgsl")
+	// assert(pp_ok == nil)
+	// log.info(preprocess)
+
+	// _, model_ok := renderer.register_model(&r, "res/model.obj")
+	// assert(model_ok)
 
 	renderer.texturemanager_register_texture_from_file(&r.texture_manager, "res/textures/gradient.png")
 	renderer.texturemanager_register_texture_from_file(&r.texture_manager, "res/textures/mech3.png")
@@ -51,17 +57,13 @@ main :: proc() {
 	renderer.texturemanager_register_texture_from_file(&r.texture_manager, "res/textures/8BitGuy.png")
 	renderer.texturemanager_upload_textures(&r.texture_manager)
 
-	for !wgpu.DevicePoll(r.core.device, false) {
-		thread.yield()
-	}
-	
 	now := time.tick_now()
 	
 	for !glfw.WindowShouldClose(window) {
 		if glfw.GetKey(window, glfw.KEY_ESCAPE) == glfw.PRESS {
 			glfw.SetWindowShouldClose(window, true)
 		}
-		defer wgpu.DevicePoll(r.core.device, false, nil)
+		// defer wgpu.DevicePoll(r.core.device, false, nil)
 		defer glfw.PollEvents()
 		defer free_all(context.temp_allocator)
 
@@ -74,11 +76,7 @@ main :: proc() {
 		glfw.SetWindowTitle(window, new_window_title)
 
 		renderer.begin_frame(&r)
-		renderer.end_frame(r)
-		renderer.present(r)
-	}
-
-	for !wgpu.DevicePoll(r.core.device, false, nil) {
-		thread.yield()
+		renderer.end_frame(&r)
+		renderer.present(&r)
 	}
 }

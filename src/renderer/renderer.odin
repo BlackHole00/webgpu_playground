@@ -6,11 +6,10 @@ import "core:log"
 import vmem "core:mem/virtual"
 import "vendor:glfw"
 import "vendor:wgpu"
-import ui "vendor:microui"
+import "shader_preprocessor"
 
 Descriptor :: struct {
 	window: glfw.WindowHandle,
-	ui_context: ^ui.Context,
 	clear_color: wgpu.Color,
 }
 
@@ -20,7 +19,6 @@ Renderer :: struct {
 
 	external: struct {
 		window: glfw.WindowHandle,
-		ui_context: ^ui.Context,
 	},
 
 	properties: struct {
@@ -48,6 +46,7 @@ Renderer :: struct {
 	resources: struct {
 		static_buffers: [Static_Buffer_Type]wgpu.Buffer,
 		dynamic_buffers: [Dynamic_Buffer_Type]wgputils.Dynamic_Buffer,
+		mirrored_buffers: [Mirrored_Buffer_Type]wgputils.Mirrored_Buffer,
 
 		static_textures: [Static_Texture_Type]wgpu.Texture,
 		dynamic_textures: [Dynamic_Texture_Type]wgputils.Dynamic_Texture,
@@ -60,8 +59,12 @@ Renderer :: struct {
 		pipelines: [Render_Pipeline_Type]wgpu.RenderPipeline,
 	},
 
+	shader_preprocessor: shader_preprocessor.Shader_Preprocessor,
+
+	layout_manager: Layout_Manager,
 	model_manager: Model_Manager,
 	texture_manager: Texture_Manager,
+	ticker_thread: Wgpu_Ticker_Thread,
 
 	frame: struct {
 		surface_texture: wgpu.SurfaceTexture,
@@ -89,15 +92,40 @@ create :: proc(renderer: ^Renderer, descriptor: Descriptor) -> (err: Error) {
 		return err
 	}
 
+	if !wgputickerthread_create_and_start(&renderer.ticker_thread, renderer.core.device) {
+		log.errorf("Could not create a Wgpu Ticker Thread")
+		return Common_Error.Generic_Error // TODO(Vicix): Add error
+	}
+	wgputickerthread_begin_frame(&renderer.ticker_thread)
+	defer wgputickerthread_end_frame(&renderer.ticker_thread)
+
 	if err = resources_init(renderer); err != nil {
 		log.errorf("Could not initialize the renderer resources: Got error %v", err)
 		return err
 	}
+	
+	if err = shader_preprocessor.create(&renderer.shader_preprocessor); err != nil {
+		log.errorf("Could not initialize the shader preprocessor: Got error %v", err)
+		return err
+	}
+	shader_preprocessor.add_include_path(&renderer.shader_preprocessor, "res/shaders")
 
+	if !layoutmanager_create(
+		&renderer.layout_manager,
+		renderer.core.queue,
+		renderer.resources.static_buffers[.Layout_Info],
+	) {
+		log.errorf("Could not initialize a layout manager")
+		return Common_Error.Generic_Error // TODO(Vicix): Add error
+	}
 	modelmanager_create(
 		&renderer.model_manager,
-		&renderer.resources.dynamic_buffers[.Model_Vertices],
-		&renderer.resources.dynamic_buffers[.Model_Indices],
+		Model_Manager_Descriptor {
+			layout_manager = &renderer.layout_manager,
+			info_backing_buffer = &renderer.resources.mirrored_buffers[.Model_Info],
+			vertices_backing_buffer = &renderer.resources.dynamic_buffers[.Model_Vertices],
+			indices_backing_buffer = &renderer.resources.dynamic_buffers[.Model_Indices],
+		},
 	)
 	texturemanager_create(
 		&renderer.texture_manager,
@@ -110,6 +138,10 @@ create :: proc(renderer: ^Renderer, descriptor: Descriptor) -> (err: Error) {
 }
 
 destroy :: proc(renderer: ^Renderer) {
+	wgputickerthread_stop_and_destroy(&renderer.ticker_thread)
+
+	shader_preprocessor.destroy(&renderer.shader_preprocessor)
+
 	texturemanager_destroy(renderer.texture_manager)
 	modelmanager_destroy(renderer.model_manager)
 

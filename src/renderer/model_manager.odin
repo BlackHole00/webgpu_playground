@@ -2,154 +2,212 @@ package renderer
 
 import "core:log"
 import "core:slice"
+import "core:mem"
 import obj "shared:tinyobjloader"
 import wgputils "wgpu"
 
-Model_Info :: struct {
-	vertex_offset: uint,
-	vertex_length: uint,
-	index_offset: uint,
-	index_length: uint,
-}
-
-Model :: distinct int
+Model :: distinct uint
 INVALID_MODEL :: max(Model)
 
+Model_Info :: struct {
+	layout: Layout,
+	uberindex_offset: u32,
+	uberindex_count: u32,
+	textures: [8]Texture,
+}
+
+Model_Manager_Descriptor :: struct {
+	layout_manager: ^Layout_Manager,
+	info_backing_buffer: ^wgputils.Mirrored_Buffer,
+	vertices_backing_buffer: ^wgputils.Dynamic_Buffer,
+	indices_backing_buffer: ^wgputils.Dynamic_Buffer,
+}
+
 Model_Manager :: struct {
-	models: [dynamic]Model_Info,
+	layout_manager: ^Layout_Manager,
+	info_backing: ^wgputils.Mirrored_Buffer,
 	vertices_backing: ^wgputils.Dynamic_Buffer,
 	indices_backing: ^wgputils.Dynamic_Buffer,
-	max_index_used: u32,
+	obj_model_layout: Layout,
 }
 
 modelmanager_create :: proc(
 	manager: ^Model_Manager,
-	backing_vertices_buffer: ^wgputils.Dynamic_Buffer,
-	backing_indices_buffer: ^wgputils.Dynamic_Buffer,
+	descriptor: Model_Manager_Descriptor,
 	allocator := context.allocator,
 ) {
-	manager.vertices_backing = backing_vertices_buffer
-	manager.indices_backing = backing_indices_buffer
+	manager.info_backing = descriptor.info_backing_buffer
+	manager.vertices_backing = descriptor.vertices_backing_buffer
+	manager.indices_backing = descriptor.indices_backing_buffer
+	manager.layout_manager = descriptor.layout_manager
 
-	manager.models = make([dynamic]Model_Info, allocator)
+	manager.obj_model_layout, _ = layoutmanager_register_layout(manager.layout_manager, Layout_Descriptor {
+		indices_count = 3,
+		vertex_sizes  = [MAX_LAYOUT_INDICES]u32 {
+			0 = 3, // position: [3]f32
+			1 = 2, // uv: [2]f32
+			2 = 3, // normal: [3]f32
+		},
+	})
 }
 
-modelmanager_destroy :: proc(manager: Model_Manager) {
-	delete(manager.models)
-}
+modelmanager_destroy :: proc(manager: Model_Manager) {}
 
-modelmanager_get_info :: proc(manager: Model_Manager, model: Model) -> ^Model_Info {
-	return &manager.models[model]
-}
-
-modelmanager_register_model_from_obj :: proc(manager: ^Model_Manager, obj_file: string) -> (Model, bool) {
-	attrib, shapes, normals, error := obj.parse_obj(obj_file, { .Triangulate })
-	if error != .Success {
-		log.errorf("Could not parse the model %s. Got error: %v", obj_file, error)
+modelmanager_register_model_from_data :: proc(
+	manager: Model_Manager,
+	layout: Layout,
+	uber_indices: []u32,
+	vertex_datas: []Vertex_Word,
+	adjust_indices := true,
+) -> (Model, bool) {
+	layout_info, layout_info_ok := layoutmanager_get_info(manager.layout_manager^, layout)
+	if !layout_info_ok {
+		log.errorf("Could not register a model: the provided layout is not valid")
 		return INVALID_MODEL, false
 	}
-	defer obj.free(attrib, shapes, normals)
 
-	used_index_count: u32
-	indices := make([dynamic]u32)
-	defer delete(indices)
-	vertices := make([dynamic]Basic_Vertex)
-	defer delete(vertices)
-	vertex_cache := make(map[Basic_Vertex]u32)
-	defer delete(vertex_cache)
+	if len(uber_indices) % (int)(layout_info.indices_count) != 0 {
+		log.errorf(
+			"Could not register a model: The provided uber-indices do not align with the provided layout. Expected " +
+			"%d indices per uber-index",
+			layout_info.indices_count,
+		)
+		return INVALID_MODEL, false
+	}
 
-	for vertices_num in attrib.face_num_verts {
-		if vertices_num != 3 {
-			log.errorf(
-				"Could not load model %s: The model uses non triangular faces. The engine does not support such model types",
-				obj_file,
-			)
+	if adjust_indices {
+		base_index := wgputils.dynamicbuffer_len(manager.vertices_backing^)
+		for &index in uber_indices {
+			index += (u32)(base_index)
+		}
+	}
+
+	index_offset := wgputils.dynamicbuffer_len(manager.indices_backing^) / size_of(u32)
+	model_idx := wgputils.mirroredbuffer_len(manager.info_backing^)
+
+	wgputils.mirroredbuffer_append(manager.info_backing, &Model_Info {
+		layout = layout,
+		uberindex_offset = (u32)(index_offset),
+		uberindex_count = (u32)(len(uber_indices)) / layout_info.indices_count,
+		// TODO(Vicix): textures = ...
+	})
+	wgputils.dynamicbuffer_append(manager.vertices_backing, vertex_datas)
+	wgputils.dynamicbuffer_append(manager.indices_backing, uber_indices)
+
+	return (Model)(model_idx), true
+}
+
+modelmanager_register_model_from_sources :: proc(
+	manager: Model_Manager,
+	layout: Layout,
+	// a slice containing the indices of each source (stored via pararrel slices)
+	index_sources: [][]u32,
+	// a slice containing the different vertex sources. The each index is relative to this vector
+	vertex_sources: [][]Vertex_Word,
+) -> (Model, bool) {
+	layout_info, layout_info_ok := layoutmanager_get_info(manager.layout_manager^, layout)
+	if !layout_info_ok {
+		log.errorf("Could not register a model: the provided layout is not valid")
+		return INVALID_MODEL, false
+	}
+	
+	if (u32)(len(index_sources)) != layout_info.indices_count {
+		log.errorf(
+			"Could not register a model: the provided index sources do not match the expected ones from the provided " +
+			"layer. Expected %d sources, found %d",
+			layout_info.indices_count,
+			len(index_sources),
+		)
+	}
+
+	if (u32)(len(vertex_sources)) != layout_info.indices_count {
+		log.errorf(
+			"Could not register a model: the provided vertex sources do not match the expected ones from the provided " +
+			"layer. Expected %d sources, found %d",
+			layout_info.indices_count,
+			len(vertex_sources),
+		)
+	}
+
+	index_count := len(index_sources[0])
+	for i in 1..<len(index_sources) {
+		if len(index_sources[i]) != index_count {
+			log.errorf("Could not register a model: The provided index sources do not have the same number of indeces")
 			return INVALID_MODEL, false
 		}
 	}
 
-	face_idx := 0
-	for face_idx < len(attrib.faces) {
-		triangle_indices := [?]obj.Vertex_Index{
-			attrib.faces[face_idx],
-			attrib.faces[face_idx + 1],
-			attrib.faces[face_idx + 2],
-		}
-
-		triangle_vertices: [3]Basic_Vertex
-		for index, i in triangle_indices {
-			triangle_vertices[i] = Basic_Vertex {
-				position = attrib.vertices[index.v_idx],
-				normal = attrib.normals[index.vn_idx],
-				// TODO(Vicix): Integrate uv with atlas
-				uv = swizzle(attrib.texcoords[index.vt_idx], 0, 1),
-			}
-		}
-
-		for vertex in triangle_vertices {
-			if cached_index, cached := vertex_cache[vertex]; cached {
-				append(&indices, cached_index)
-				continue
-			}
-
-			append(&vertices, vertex)
-			append(&indices, used_index_count)
-			vertex_cache[vertex] = used_index_count
-		
-			used_index_count += 1
-		}
-
-		face_idx += 3
+	vertex_data_size := 0
+	for vertex_source in vertex_sources {
+		vertex_data_size += len(vertex_source)
 	}
 
-	model, ok := modelmanager_register_model_raw(manager, vertices[:], indices[:], true)
-	if !ok {
-		log.errorf("Could not load model %s into gpu memory", obj_file)
+	index_buffer := make([]u32, len(index_sources[0]) * (int)(layout_info.indices_count), context.temp_allocator)
+	vertex_buffer := make([]Vertex_Word, vertex_data_size, context.temp_allocator)
+	index_offset := 0
+
+	for index_idx in 0..<len(index_sources[0]) {
+		vertex_offset := 0
+		for index_source_idx, i in 0..<len(index_sources) {
+			index_buffer[index_offset] = index_sources[index_source_idx][index_idx]
+			index_buffer[index_offset] += (u32)(vertex_offset)
+
+			index_offset += 1
+			vertex_offset += len(vertex_sources[i])
+		}
 	}
 
-	return model, ok
+	vertex_offset := 0
+	for vertex_source in vertex_sources {
+		mem.copy_non_overlapping(&vertex_buffer[vertex_offset], raw_data(vertex_source), len(vertex_source) * size_of(Vertex_Word))
+		vertex_offset += len(vertex_source)
+	}
+
+	return modelmanager_register_model_from_data(manager, layout, index_buffer, vertex_buffer)
 }
 
-modelmanager_register_model_raw :: proc(
-	manager: ^Model_Manager,
-	vertices: []Basic_Vertex,
-	indices: []u32,
-	can_override_input := false,
-) -> (Model, bool) {
-	vertex_offset := manager.vertices_backing.length
-	index_offset := manager.indices_backing.length
-
-	if !wgputils.dynamicbuffer_append(manager.vertices_backing, vertices) {
-		log.errorf("Could not insert the new model vertices")
+modelmanager_register_model_from_obj :: proc(manager: Model_Manager, obj_path: string) -> (Model, bool) {
+	attrib, shapes, materials, model_err := obj.parse_obj(obj_path, { .Triangulate })
+	if model_err != .Success {
+		log.errorf(
+			"Could not register the model %s: Could not open the corrisponding obj file. Got error: %v",
+			obj_path,
+			model_err,
+		)
 		return INVALID_MODEL, false
 	}
-	if !wgputils.dynamicbuffer_append(manager.indices_backing, indices) {
-		log.errorf("Could not insert the new model indices")
-		return INVALID_MODEL, false
+	defer obj.free(attrib, shapes, materials)
+
+	vertex_sources: [3][]Vertex_Word
+	vertex_sources[0] = slice.reinterpret([]Vertex_Word, attrib.vertices)
+	vertex_sources[1] = slice.reinterpret([]Vertex_Word, attrib.texcoords)
+	vertex_sources[2] = slice.reinterpret([]Vertex_Word, attrib.normals)
+
+	index_sources: [3][]u32
+	index_sources[0] = make([]u32, len(attrib.faces), context.temp_allocator)
+	index_sources[1] = make([]u32, len(attrib.faces), context.temp_allocator)
+	index_sources[2] = make([]u32, len(attrib.faces), context.temp_allocator)
+
+	for face, i in attrib.faces {
+		index_sources[0][i] = (u32)(face.v_idx) * 3
+		index_sources[1][i] = (u32)(face.vt_idx) * 2
+		index_sources[2][i] = (u32)(face.vn_idx) * 3
 	}
 
-	indices := indices
-	if !can_override_input {
-		indices = slice.clone(indices, context.temp_allocator)
-	}
+	log.info(vertex_sources)
+	log.info(index_sources)
 
-	for &i in indices {
-		i += manager.max_index_used
-	}
-	manager.max_index_used += (u32)(len(vertices))
-
-	model := (Model)(len(manager.models))
-	append(&manager.models, Model_Info {
-		vertex_offset = vertex_offset,
-		vertex_length = len(vertices),
-		index_offset = index_offset,
-		index_length = len(indices),
-	})
-
-	return model, true
+	return modelmanager_register_model_from_sources(
+		manager,
+		manager.obj_model_layout,
+		index_sources[:],
+		vertex_sources[:],
+	)
 }
 
 modelmanager_register_model :: proc {
-	modelmanager_register_model_raw,
+	modelmanager_register_model_from_data,
+	modelmanager_register_model_from_sources,
 	modelmanager_register_model_from_obj,
 }
+

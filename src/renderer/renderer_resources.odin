@@ -51,6 +51,9 @@ renderer_set_static_buffer :: proc(renderer: ^Renderer, type: Static_Buffer_Type
 renderer_get_dynamic_buffer :: proc(renderer: ^Renderer, type: Dynamic_Buffer_Type) -> ^wgputils.Dynamic_Buffer {
 	return &renderer.resources.dynamic_buffers[type]
 }
+renderer_get_mirrored_buffer :: proc(renderer: ^Renderer, type: Mirrored_Buffer_Type) -> ^wgputils.Mirrored_Buffer {
+	return &renderer.resources.mirrored_buffers[type]
+}
 
 BINDGROUP_LAYOUT_DESCRIPTORS := [Bindgroup_Type]wgpu.BindGroupLayoutDescriptor {
 	.Draw_Command = wgpu.BindGroupLayoutDescriptor {
@@ -361,25 +364,26 @@ resources_init_bindgroups :: proc(renderer: ^Renderer) -> bool {
 }
 
 resources_init_pipelines :: proc(renderer: ^Renderer) -> bool {
-	renderer.resources.pipelines[.MicroUI_To_Rendertarget] = renderpipeline_build(
-		renderer,
-		&Render_Pipeline_Descriptor {
-			source_location = "res/microui.wgsl",
-			vertex_entry_point = "vertex_main",
-			fragment_entry_point = "fragment_main",
-			front_face = .CCW,
-			cull_mode = .None,
-			vertex_layouts = []Vertex_Layout_Type { .MicroUI },
-			bindgroups = []Bindgroup_Type {
-				.Draw_Command,
-				.Textures,
-			},
-			render_target = .Default,
-			depth_test = false,
-			multisample = false,
-		},
-	)
+	// renderer.resources.pipelines[.MicroUI_To_Rendertarget] = renderpipeline_build(
+	// 	renderer,
+	// 	&Render_Pipeline_Descriptor {
+	// 		source_location = "res/microui.wgsl",
+	// 		vertex_entry_point = "vertex_main",
+	// 		fragment_entry_point = "fragment_main",
+	// 		front_face = .CCW,
+	// 		cull_mode = .None,
+	// 		vertex_layouts = []Vertex_Layout_Type { .MicroUI },
+	// 		bindgroups = []Bindgroup_Type {
+	// 			.Draw_Command,
+	// 			.Textures,
+	// 		},
+	// 		render_target = .Default,
+	// 		depth_test = false,
+	// 		multisample = false,
+	// 	},
+	// )
 
-	return renderer.resources.pipelines[.MicroUI_To_Rendertarget] != nil
+	// return renderer.resources.pipelines[.MicroUI_To_Rendertarget] != nil
+	return true
 }
 
