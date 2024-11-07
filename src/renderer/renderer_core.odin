@@ -140,7 +140,7 @@ core_check_adapter_capabilities :: proc(renderer: ^Renderer) -> bool {
 }
 
 core_device_init :: proc(renderer: ^Renderer) -> bool {
-	request_data := Adapter_Request_Data { renderer, false }
+	request_data := Device_Request_Data { renderer, false }
 	
 	device_descriptor := wgpu.DeviceDescriptor {
 		requiredFeatureCount = 1,

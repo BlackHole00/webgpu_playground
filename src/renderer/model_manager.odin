@@ -91,12 +91,6 @@ modelmanager_register_model_from_data :: proc(
 		uberindex_count = (u32)(len(uber_indices)) / layout_info.indices_count,
 		// TODO(Vicix): textures = ...
 	})
-	log.info(Model_Info {
-		layout = layout,
-		uberindex_offset = (u32)(index_offset),
-		uberindex_count = (u32)(len(uber_indices)) / layout_info.indices_count,
-		// TODO(Vicix): textures = ...
-	})
 	wgputils.dynamicbuffer_append(manager.vertices_backing, vertex_datas)
 	wgputils.dynamicbuffer_append(manager.indices_backing, uber_indices)
 
@@ -199,9 +193,6 @@ modelmanager_register_model_from_obj :: proc(manager: Model_Manager, obj_path: s
 		index_sources[1][i] = (u32)(face.vt_idx) * 2
 		index_sources[2][i] = (u32)(face.vn_idx) * 3
 	}
-
-	log.info(vertex_sources)
-	log.info(index_sources)
 
 	return modelmanager_register_model_from_sources(
 		manager,

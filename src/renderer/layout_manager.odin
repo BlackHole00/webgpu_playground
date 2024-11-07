@@ -86,8 +86,6 @@ layoutmanager_register_layout :: proc(manager: ^Layout_Manager, descriptor: Layo
 	info.indices_count = descriptor.indices_count
 	copy(info.vertex_sizes[:], descriptor.vertex_sizes)
 
-	log.info(info, descriptor)
-
 	append(&manager.infos, info)
 	wgpu.QueueWriteBuffer(
 		manager.queue,
