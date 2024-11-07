@@ -12,7 +12,7 @@ Command_Line_Options :: struct {
 	files: [dynamic]string `args:"pos=0,required=1" usage:"Shader input file(s)"`,
 	include_path: [dynamic]string `usage:"Specifies the include path(s)"`,
 	allow_namespaces: bool `usage:"Allows namespace usage when preprocessing"`,
-	verbose: bool `usage="Print more messages"`,
+	verbose: bool `usage:"Print more messages"`,
 }
 
 g_command_line_options: Command_Line_Options
