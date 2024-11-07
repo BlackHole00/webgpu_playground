@@ -1,4 +1,10 @@
 #pragma once
 
-@id(0) override layout_count: u32 = 128;
+const layout_count: u32 = 128u;
 
+const OPENGL_TO_WGPU_MATRIX = mat4x4f(
+	1.0f, 0.0f, 0.0f, 0.0f,
+	0.0f, 1.0f, 0.0f, 0.0f,
+	0.0f, 0.0f, 0.5f, 0.5f,
+	0.0f, 0.0f, 0.0f, 1.0f,
+);

@@ -6,18 +6,43 @@ import "vendor:wgpu"
 import wgputils "wgpu"
 
 Static_Buffer_Type :: enum {
-	Uniform_Application_State,
+	// Holds the information specific to the current generic state of the 
+	// application. It does not include any of the information related to the
+	// current scenes or things to draw. Examples of values included in this
+	// buffer are the current time, the viewport size, whether the application
+	// is minimized...
+	Application_State,
+	// Holds the informations of the various vertex layouts. It is static 
+	// because the renderer only supports up to 128 layouts.
 	Layout_Info,
 }
 
 Dynamic_Buffer_Type :: enum {
+	// Holds the various uber-indices of the models. The buffer is contiguous.
+	// in order to find the right indices of a model it is necessary to have the
+	// model info and the layout info relative to the thing it is being drawn
 	Model_Indices,
+	// Holds the various vertices of the models, aligned to a word (32 bit)
 	Model_Vertices,
-	Uniform_Pass_States,
+	// Holds the information relative to each draw call (including the camera 
+	// index and the model index). Each draw call uses a differect section of
+	// this buffer, via a dynamic offset
+	Draw_Call_Info,
+	// Holds the view and projection matrices for every camera present in the
+	// scenes
+	Cameras,
 }
 
 Mirrored_Buffer_Type :: enum {
+	// Holds the information related to each model, most importantly the layout
+	// used, the number of indices and the offset of the first one.
 	Model_Info,
+	// Holds the information related to each texture, most importanly its 
+	// format, size and position inside the atlas
+	Texture_Info,
+	// Holds information about each object. Most importantly its model and its
+	// position
+	Objects,
 }
 
 resources_init_buffers :: proc(renderer: ^Renderer) -> (ok: bool) {
@@ -43,9 +68,10 @@ resources_init_buffers :: proc(renderer: ^Renderer) -> (ok: bool) {
 
 resources_init_static_buffers :: proc(renderer: ^Renderer) -> bool {
 	BUFFER_DESCRIPTORS := [Static_Buffer_Type]wgpu.BufferDescriptor {
-		.Uniform_Application_State = {
+		.Application_State = {
 			usage = { .Uniform, .CopyDst },
-			size = size_of(Draw_Command_Application_Uniform),
+			// TODO: Specify size better
+			size = 64,
 			label = "Uniform Application State",
 		},
 		.Layout_Info = {
@@ -71,10 +97,9 @@ resources_init_static_buffers :: proc(renderer: ^Renderer) -> bool {
 
 resources_init_dynamic_buffers :: proc(renderer: ^Renderer) -> bool {
 	BUFFER_DESCRIPTORS := [Dynamic_Buffer_Type]wgpu.BufferDescriptor {
-		.Uniform_Pass_States = {
+		.Draw_Call_Info = {
 			usage = { .Uniform, .CopySrc, .CopyDst },
-			size = size_of(Draw_Command_Application_Uniform) * 8,
-			label = "Uniform Pass States",
+			label = "Draw Call Info",
 		},
 		.Model_Vertices = {
 			usage = { .Storage, .CopySrc, .CopyDst },
@@ -83,6 +108,11 @@ resources_init_dynamic_buffers :: proc(renderer: ^Renderer) -> bool {
 		.Model_Indices = {
 			usage = { .Storage, .CopySrc, .CopyDst },
 			label = "Model Indices",
+		},
+		.Cameras = {
+			usage = { .Storage, .CopySrc, .CopyDst },
+			label = "Cameras Info",
+			size = 256,
 		},
 	}
 
@@ -105,13 +135,21 @@ resources_init_mirrored_buffers :: proc(renderer: ^Renderer) -> bool {
 	BUFFER_DESCRIPTORS := [Mirrored_Buffer_Type]wgpu.BufferDescriptor {
 		.Model_Info = {
 			usage = { .Storage, .CopySrc, .CopyDst },
-			size = size_of(Draw_Command_Application_Uniform) * 8,
-			label = "Uniform Pass States",
+			label = "Model Info",
+		},
+		.Texture_Info = {
+			usage = { .Storage, .CopySrc, .CopyDst },
+			label = "Texture Info",
+		},
+		.Objects = {
+			usage = { .Storage, .CopySrc, .CopyDst },
+			label = "Objects Info",
+			size = 256,
 		},
 	}
 
 	for descriptor, buffer in BUFFER_DESCRIPTORS {
-		if !wgputils.dynamicbuffer_create(
+		if !wgputils.mirroredbuffer_create(
 			&renderer.resources.mirrored_buffers[buffer],
 			renderer.core.device,
 			renderer.core.queue,

@@ -39,7 +39,7 @@ dynamicbuffer_create :: proc(
 	label := utils.cstring_clone(descriptor.label)
 
 	descriptor.label = label
-	descriptor.size = max(32, descriptor.size)
+	descriptor.size = max(64, descriptor.size)
 
 	buffer.allocator = allocator
 	buffer.handle = wgpu.DeviceCreateBuffer(device, &descriptor)

@@ -13,7 +13,6 @@ Render_Pipeline_Descriptor :: struct {
 	front_face: wgpu.FrontFace,
 	cull_mode: wgpu.CullMode,
 
-	vertex_layouts: []Vertex_Layout_Type,
 	bindgroups: []Bindgroup_Type,
 
 	render_target: Render_Target,
@@ -27,7 +26,6 @@ renderpipeline_build :: proc(
 	descriptor: ^Render_Pipeline_Descriptor,
 ) -> (wgpu.RenderPipeline, bool) #optional_ok {
 	bind_group_layouts: [32]wgpu.BindGroupLayout
-	vertex_buffer_layouts: [8]wgpu.VertexBufferLayout
 
 	source, preprocess_err := shader_preprocessor.preprocess(
 		&renderer.shader_preprocessor, descriptor.source_location, context.temp_allocator,
@@ -76,11 +74,12 @@ renderpipeline_build :: proc(
 		}
 
 		depth_stencil_state.depthWriteEnabled = true
-		depth_stencil_state.depthCompare = .LessEqual
-		depth_stencil_state.stencilWriteMask = 0
-		depth_stencil_state.stencilReadMask = 0
-		depth_stencil_state.stencilFront.compare = .Never
-		depth_stencil_state.stencilBack.compare = .Never
+		depth_stencil_state.depthCompare = .Less
+		// depth_stencil_state.depthCompare = .GreaterEqual
+		depth_stencil_state.stencilWriteMask = max(u32)
+		depth_stencil_state.stencilReadMask = max(u32)
+		depth_stencil_state.stencilFront.compare = .Always
+		depth_stencil_state.stencilBack.compare = .Always
 
 		depth_stencil_state_ptr = &depth_stencil_state
 	}
@@ -100,9 +99,6 @@ renderpipeline_build :: proc(
 		target_format = renderer.core.surface_capabilities.formats[0]
 	}
 
-	for vertex_layout_type, i in descriptor.vertex_layouts {
-		vertex_buffer_layouts[i] = renderer.resources.vertex_layouts[vertex_layout_type]
-	}
 	pipeline := wgpu.DeviceCreateRenderPipeline(renderer.core.device, &wgpu.RenderPipelineDescriptor {
 		layout = layout,
 		primitive = wgpu.PrimitiveState {
@@ -114,8 +110,6 @@ renderpipeline_build :: proc(
 		vertex = wgpu.VertexState {
 			module = shader_module,
 			entryPoint = descriptor.vertex_entry_point,
-			bufferCount = len(descriptor.vertex_layouts),
-			buffers = &vertex_buffer_layouts[0],
 		},
 		fragment = &wgpu.FragmentState {
 			module = shader_module,

@@ -24,20 +24,17 @@ import "vendor:wgpu"
 Layout :: distinct u32
 INVALID_LAYOUT :: max(Layout)
 
-// Vertex_Source_Data :: distinct []u32 // we work in words
-// Vertex_Sources :: distinct []Vertex_Source_Data // of length 1..=8
-// Vertex :: Vertex_Sources
-
-Vertex_Word :: distinct u32
-Vertex_Sources :: []Vertex_Word
-Vertices_Provider :: []Vertex_Sources // of length 1..=8
+Vertex_Word :: u32
 
 Layout_Info :: struct {
 	indices_count : u32, // in range 0..8
 	vertex_sizes  : [MAX_LAYOUT_INDICES]u32,
 }
 
-Layout_Descriptor :: Layout_Info
+Layout_Descriptor :: struct {
+	indices_count: u32,
+	vertex_sizes: []u32,
+}
 
 // TODO(Vicix): Migrate to Mirrored_Buffer
 Layout_Manager :: struct {
@@ -84,11 +81,18 @@ layoutmanager_register_layout :: proc(manager: ^Layout_Manager, descriptor: Layo
 	}
 
 	layout_idx := len(manager.infos)
-	append(&manager.infos, descriptor)
+
+	info: Layout_Info
+	info.indices_count = descriptor.indices_count
+	copy(info.vertex_sizes[:], descriptor.vertex_sizes)
+
+	log.info(info, descriptor)
+
+	append(&manager.infos, info)
 	wgpu.QueueWriteBuffer(
 		manager.queue,
 		manager.backing_buffer,
-		data = &descriptor,
+		data = &info,
 		bufferOffset = (u64)(layout_idx) * size_of(Layout_Info),
 		size = size_of(Layout_Info),
 	)

@@ -1,17 +1,23 @@
 #pragma once
 
-alias Layout = u32;
+alias Memory_Layout = u32;
 alias Model = u32;
 alias Texture = u32;
 alias Object = u32;
+alias Camera = u32;
 
-struct Layout_Info {
+struct Application_State {
+    time: f32,
+    viewport_size: vec2u,
+}
+
+struct Memory_Layout_Info {
     indices_count: u32,
     vertex_sizes: array<u32, 8>,
 }
 
 struct Model_Info {
-    layout: Layout,
+    memory_layout: Memory_Layout,
     first_uberindex_offset: u32,
     uberindex_count: u32,
     textures: array<Texture, 8>,
@@ -28,10 +34,12 @@ struct Object_Info {
 }
 
 struct Draw_Call_Info {
-    object: Object,
+    camera: Camera,
+    object_offset: u32,
+    model_id: u32,
 }
 
-struct Draw_Batch_Info {
+struct Camera_Info {
     view_matrix: mat4x4f,
     projection_matrix: mat4x4f,
 }

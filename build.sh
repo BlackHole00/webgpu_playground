@@ -1,7 +1,7 @@
 #!/bin/sh
-odin build src -debug -collection:shared=shared -out:build/app -strict-style -vet -show-timings
+odin build src -debug -collection:shared=shared -out:build/app -strict-style -vet -show-timings -define:WGPU_DEBUG=false
 if [[ $? -ne 0 ]]; then
-	exit
+	exit 1
 fi
 
 if [[ "$(uname)" == "Darwin" ]]; then

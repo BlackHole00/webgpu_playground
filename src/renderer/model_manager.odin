@@ -9,7 +9,7 @@ import wgputils "wgpu"
 Model :: distinct uint
 INVALID_MODEL :: max(Model)
 
-Model_Info :: struct {
+Model_Info :: struct #packed {
 	layout: Layout,
 	uberindex_offset: u32,
 	uberindex_count: u32,
@@ -43,7 +43,7 @@ modelmanager_create :: proc(
 
 	manager.obj_model_layout, _ = layoutmanager_register_layout(manager.layout_manager, Layout_Descriptor {
 		indices_count = 3,
-		vertex_sizes  = [MAX_LAYOUT_INDICES]u32 {
+		vertex_sizes  = []u32 {
 			0 = 3, // position: [3]f32
 			1 = 2, // uv: [2]f32
 			2 = 3, // normal: [3]f32
@@ -86,6 +86,12 @@ modelmanager_register_model_from_data :: proc(
 	model_idx := wgputils.mirroredbuffer_len(manager.info_backing^)
 
 	wgputils.mirroredbuffer_append(manager.info_backing, &Model_Info {
+		layout = layout,
+		uberindex_offset = (u32)(index_offset),
+		uberindex_count = (u32)(len(uber_indices)) / layout_info.indices_count,
+		// TODO(Vicix): textures = ...
+	})
+	log.info(Model_Info {
 		layout = layout,
 		uberindex_offset = (u32)(index_offset),
 		uberindex_count = (u32)(len(uber_indices)) / layout_info.indices_count,

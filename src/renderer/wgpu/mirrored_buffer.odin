@@ -18,6 +18,8 @@ mirroredbuffer_create :: proc(
 	descriptor: wgpu.BufferDescriptor,
 	allocator := context.allocator,
 ) -> bool {
+	descriptor := descriptor
+
 	if wgpu.BufferUsage.CopySrc not_in descriptor.usage || wgpu.BufferUsage.CopyDst not_in descriptor.usage {
 		log.errorf(
 			"The provided Mirrored Buffer usages for buffer %s are not valid. A Mirrored Buffer requires the usages " +
@@ -27,6 +29,8 @@ mirroredbuffer_create :: proc(
 		)
 		return false
 	}
+
+	descriptor.size = max(64, descriptor.size)
 
 	if !dynamicbuffer_create(&buffer.gpu_buffer, device, queue, descriptor, allocator) {
 		log.errorf(

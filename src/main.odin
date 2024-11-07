@@ -37,7 +37,7 @@ main :: proc() {
 
 	assert(renderer.create(&r, renderer.Descriptor {
 		window = window,
-		clear_color = wgpu.Color { 0.1, 0.2, 0.3, 1.0 },
+		clear_color = wgpu.Color { 36 / (f64)(255), 4 / (f64)(255), 36 / (f64)(255), 1.0 },
 	}) == nil, "Could not initialize the renderer")
 	defer renderer.destroy(&r)
 

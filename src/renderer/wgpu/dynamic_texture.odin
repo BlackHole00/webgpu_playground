@@ -71,6 +71,10 @@ dynamictexture_as_texture :: proc(texture: Dynamic_Texture) -> wgpu.Texture {
 	return texture.handle
 }
 
+dynamictexture_as_view :: proc(texture: Dynamic_Texture) -> wgpu.TextureView {
+	return wgpu.TextureCreateView(texture.handle)
+}
+
 dynamictexture_get_size :: proc(texture: Dynamic_Texture) -> wgpu.Extent3D {
 	return texture_get_size(texture.handle)
 }

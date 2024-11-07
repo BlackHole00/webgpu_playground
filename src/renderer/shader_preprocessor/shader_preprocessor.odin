@@ -154,7 +154,8 @@ shaderpreprocessor_preprocess_as_inclusion :: proc(
 
 	scn: scanner.Scanner
 	scanner.init(&scn, (string)(file_contents), fullpath)
-	scn.flags = scanner.C_Like_Tokens
+	// scn.flags = scanner.C_Like_Tokens
+	scn.flags = scanner.Scan_Flags{.Scan_Idents, .Scan_Comments, .Skip_Comments}
 	scn.whitespace = scanner.Whitespace{'\t', '\r', '\v', '\f', ' '}
 
 	source := (string)(file_contents)
@@ -176,6 +177,7 @@ shaderpreprocessor_preprocess_as_inclusion :: proc(
 			&scn,
 		); resolution_err != nil {
 			log.errorf("Could not preprocess file `%s`: Got error %v", fullpath, resolution_err)
+			return source, nil
 		} else {
 			source = new_source
 		}

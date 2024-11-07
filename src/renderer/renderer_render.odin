@@ -1,24 +1,78 @@
 package renderer
 
 import "vendor:wgpu"
-// import "vendor:glfw"
+import "vendor:glfw"
+import la "core:math/linalg"
+
+prepare_test_draw :: proc(renderer: ^Renderer) {
+	Object :: struct #packed {
+		model: Model,
+		_padding: [8]byte,
+		object_matrix: matrix[4,4]f32,
+	}
+	Draw_Call_Info :: struct {
+		camera: u32,
+		object_offset: u32,
+		model_id: u32,
+	}
+	Camera :: struct {
+		view: matrix[4,4]f32,
+		proj: matrix[4,4]f32,
+	}
+
+	time := glfw.GetTime()
+	width, height := glfw.GetWindowSize(renderer.external.window)
+
+	wgpu.QueueWriteBuffer(
+		renderer.core.queue,
+		renderer.resources.static_buffers[.Application_State],
+		0,
+		&Application_State {
+			time = (f32)(time),
+			viewport_size = [2]u32 { (u32)(width), (u32)(height) },
+		},
+		size_of(Application_State),
+	)
+	wgpu.QueueWriteBuffer(
+		renderer.core.queue,
+		renderer.resources.mirrored_buffers[.Objects].handle,
+		0,
+		&Object {
+			model = 0,
+			object_matrix = la.matrix4_translate_f32({ 0.0, -4.0, 0.0 }) * la.matrix4_rotate_f32((f32)(time) * 0.3, { 0.0, 1.0, 0.0 }) * la.matrix4_scale_f32({ 4.0, 4.0, 4.0}) * la.identity(matrix[4,4]f32),
+		},
+		size_of(Object),
+	)
+	// wgpu.QueueWriteBuffer(
+	// 	renderer.core.queue,
+	// 	renderer.resources.dynamic_buffers[.Draw_Call_Info].handle,
+	// 	0,
+	// 	&Draw_Call_Info {},
+	// 	size_of(Draw_Call_Info),
+	// )
+	view := la.matrix4_look_at_f32({ 0.0, 0.0, -5.0 }, { 0.0, 0.0, 0.0 }, { 0.0, 1.0, 0.0 })
+	proj := la.matrix4_perspective_f32(la.to_radians((f32)(90)), (f32)(width) / (f32)(height), 0.001, 1000.0)
+	c := Camera {
+		view = view,
+		proj = proj,
+	}
+	wgpu.QueueWriteBuffer(
+		renderer.core.queue,
+		renderer.resources.dynamic_buffers[.Cameras].handle,
+		0,
+		&c,
+		size_of(Camera),
+	)
+
+	// wgputickerthread_sync(&renderer.ticker_thread)
+}
 
 begin_frame :: proc(renderer: ^Renderer) {
 	wgputickerthread_begin_frame(&renderer.ticker_thread)
 
+	prepare_test_draw(renderer)
+	resources_recreate_volatile_bindgroups(renderer)
 	renderer.frame.surface_texture = wgpu.SurfaceGetCurrentTexture(renderer.core.surface)
-	// window_width, window_heigth := glfw.GetWindowSize(renderer.external.window)
-
-	// wgpu.QueueWriteBuffer(
-	// 	renderer.core.queue,
-	// 	renderer.resources.buffers[.Uniform_Draw_Command_Application],
-	// 	0,
-	// 	&Draw_Command_Application_Uniform {
-	// 		time = (f32)(glfw.GetTime()),
-	// 		viewport_size = { (u32)(window_width), (u32)(window_heigth) },
-	// 	},
-	// 	size_of(Draw_Command_Application_Uniform),
-	// )
 
 	depth_view := wgpu.TextureCreateView(renderer.resources.dynamic_textures[.Surface_Depth_Buffer].handle)
 	surface_view := wgpu.TextureCreateView(renderer.frame.surface_texture.texture)
@@ -49,9 +103,16 @@ begin_frame :: proc(renderer: ^Renderer) {
 				depthLoadOp = .Clear,
 				depthStoreOp = .Store,
 				depthReadOnly = false,
+				depthClearValue = 1.0,
 			},
 		},
 	)
+
+	wgpu.RenderPassEncoderSetPipeline(renderer.frame.render_pass, renderer.resources.pipelines[.Obj_Draw])
+	wgpu.RenderPassEncoderSetBindGroup(renderer.frame.render_pass, 0, renderer.resources.bindgroups[.Data])
+	wgpu.RenderPassEncoderSetBindGroup(renderer.frame.render_pass, 1, renderer.resources.bindgroups[.Draw], []u32 { 0 })
+	wgpu.RenderPassEncoderSetBindGroup(renderer.frame.render_pass, 2, renderer.resources.bindgroups[.Utilities])
+	wgpu.RenderPassEncoderDraw(renderer.frame.render_pass, 720, 1, 0, 0)
 }
 
 end_frame :: proc(renderer: ^Renderer) {

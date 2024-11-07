@@ -4,25 +4,12 @@ import "base:runtime"
 import "shader_preprocessor"
 
 Render_Pipeline_Type :: enum {
-	// Deferred_To_GBuffers,
-	// Defferred_To_Rendertarget,
-	// Skybox_To_Rendertarget,
-	MicroUI_To_Rendertarget,
-}
-
-Vertex_Layout_Type :: enum {
-	// { }
-	None,
-	// { position: [3]f32, uv: [2]f32, normal: [3]f32 }
-	Basic,
-	// { position: [4]f32, uv: [2]f32, color: [4]f32 }
-	MicroUI,
+	Obj_Draw,
 }
 
 Texture_Type :: enum {
 	Surface_Depth,
 	General_Atlas,
-	MicroUI_Atlas,
 }
 
 Sampler_Type :: enum {
@@ -35,11 +22,9 @@ Render_Target :: enum {
 }
 
 Bindgroup_Type :: enum {
-	// Holds information specific to the current draw call (like the view and projection matrices) and the current 
-	// application state (like time)
-	Draw_Command,
-	// Holds references to the textures and samplers available
-	Textures,
+	Data,
+	Draw,
+	Utilities,
 }
 
 Basic_Instance_Data :: struct {

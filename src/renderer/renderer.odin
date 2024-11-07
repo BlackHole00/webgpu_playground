@@ -53,7 +53,6 @@ Renderer :: struct {
 
 		samplers: [Sampler_Type]wgpu.Sampler,
 
-		vertex_layouts: [Vertex_Layout_Type]wgpu.VertexBufferLayout,
 		bindgroup_layouts: [Bindgroup_Type]wgpu.BindGroupLayout,
 		bindgroups: [Bindgroup_Type]wgpu.BindGroup,
 		pipelines: [Render_Pipeline_Type]wgpu.RenderPipeline,
@@ -99,16 +98,16 @@ create :: proc(renderer: ^Renderer, descriptor: Descriptor) -> (err: Error) {
 	wgputickerthread_begin_frame(&renderer.ticker_thread)
 	defer wgputickerthread_end_frame(&renderer.ticker_thread)
 
-	if err = resources_init(renderer); err != nil {
-		log.errorf("Could not initialize the renderer resources: Got error %v", err)
-		return err
-	}
-	
 	if err = shader_preprocessor.create(&renderer.shader_preprocessor); err != nil {
 		log.errorf("Could not initialize the shader preprocessor: Got error %v", err)
 		return err
 	}
 	shader_preprocessor.add_include_path(&renderer.shader_preprocessor, "res/shaders")
+
+	if err = resources_init(renderer); err != nil {
+		log.errorf("Could not initialize the renderer resources: Got error %v", err)
+		return err
+	}
 
 	if !layoutmanager_create(
 		&renderer.layout_manager,
@@ -131,6 +130,7 @@ create :: proc(renderer: ^Renderer, descriptor: Descriptor) -> (err: Error) {
 		&renderer.texture_manager,
 		&renderer.resources.dynamic_textures[.Texture_Atlas],
 	)
+	register_model(renderer, "res/LightPole.obj")
 	
 	resize_surface(renderer)
 	
