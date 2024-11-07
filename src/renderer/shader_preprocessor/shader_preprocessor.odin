@@ -25,6 +25,13 @@ Error :: union #shared_nil {
 	runtime.Allocator_Error,
 }
 
+Preprocess_Options :: struct {
+	allow_namespaces: bool,
+}
+DEFAULT_PREPROCESS_OPTIONS :: Preprocess_Options {
+	allow_namespaces = true,
+}
+
 Shader_Preprocessor :: struct {
 	allocator: runtime.Allocator,
 	arena: vmem.Arena,
@@ -108,6 +115,7 @@ define_literal_symbol :: proc(
 preprocess :: proc(
 	preprocessor: ^Shader_Preprocessor,
 	file: string,
+	preprocess_options := DEFAULT_PREPROCESS_OPTIONS,
 	allocator := context.allocator,
 ) -> (result: string, err: Error) {
 	if !os.is_file(file) {
@@ -125,7 +133,7 @@ preprocess :: proc(
 	}
 	preprocessor.target_file = fullpath
 
-	preprocess, preprocess_res := shaderpreprocessor_preprocess_as_inclusion(preprocessor, fullpath)
+	preprocess, preprocess_res := shaderpreprocessor_preprocess_as_inclusion(preprocessor, fullpath, preprocess_options)
 	if preprocess_res != nil {
 		return "", preprocess_res
 	}
@@ -145,6 +153,7 @@ Inclusion_Info :: struct {
 shaderpreprocessor_preprocess_as_inclusion :: proc(
 	preprocessor: ^Shader_Preprocessor,
 	fullpath: string,
+	preprocess_options: Preprocess_Options,
 ) -> (string, Error) {
 	file_contents, file_contents_ok := os.read_entire_file(fullpath, shaderpreprocessor_temp_allocator(preprocessor))
 	if !file_contents_ok {
@@ -175,12 +184,17 @@ shaderpreprocessor_preprocess_as_inclusion :: proc(
 			preprocessor, 
 			macro,
 			&scn,
+			preprocess_options,
 		); resolution_err != nil {
 			log.errorf("Could not preprocess file `%s`: Got error %v", fullpath, resolution_err)
-			return source, nil
+			return source, resolution_err
 		} else {
 			source = new_source
 		}
+	}
+
+	if preprocess_options.allow_namespaces {
+		source, _ = strings.replace_all(source, "::", "__", shaderpreprocessor_temp_allocator(preprocessor))
 	}
 
 	return source, nil

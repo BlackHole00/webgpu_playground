@@ -10,6 +10,7 @@ shaderpreprocessor_resolve_macro :: proc(
 	preprocessor: ^Shader_Preprocessor,
 	macro: Macro,
 	scn: ^scanner.Scanner,
+	preproces_options: Preprocess_Options,
 ) -> (string, Error) {
 	#partial switch data in macro.data {
 	case Macro_Symbol:
@@ -88,6 +89,7 @@ shaderpreprocessor_resolve_macro :: proc(
 		preprocessed_source, preprocess_res := shaderpreprocessor_preprocess_as_inclusion(
 			preprocessor,
 			fullpath,
+			preproces_options,
 		)
 		if preprocess_res != nil {
 			log.errorf("Could not preprocess included file %s: Got error %v", fullpath, preprocess_res)
