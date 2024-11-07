@@ -176,7 +176,7 @@ modelmanager_register_model_from_obj :: proc(manager: Model_Manager, obj_path: s
 	attrib, shapes, materials, model_err := obj.parse_obj(obj_path, { .Triangulate })
 	if model_err != .Success {
 		log.errorf(
-			"Could not register the model %s: Could not open the corrisponding obj file. Got error: %v",
+			"Could not register the model %s: Could not parse the corrisponding obj file. Got error: %v",
 			obj_path,
 			model_err,
 		)

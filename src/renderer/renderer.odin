@@ -130,7 +130,7 @@ create :: proc(renderer: ^Renderer, descriptor: Descriptor) -> (err: Error) {
 		&renderer.texture_manager,
 		&renderer.resources.dynamic_textures[.Texture_Atlas],
 	)
-	register_model(renderer, "res/LightPole.obj")
+	register_model(renderer, "res/models/LightPole.obj")
 	
 	resize_surface(renderer)
 	

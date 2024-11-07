@@ -1,5 +1,0 @@
-alias Layout = u32;
-alias Model = u32;
-alias Texture = u32;
-alias Object = u32;
-

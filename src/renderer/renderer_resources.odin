@@ -401,7 +401,7 @@ resources_init_pipelines :: proc(renderer: ^Renderer) -> bool {
 	renderer.resources.pipelines[.Obj_Draw] = renderpipeline_build(
 		renderer,
 		&Render_Pipeline_Descriptor {
-			source_location = "res/single_obj_draw.wgsl",
+			source_location = "res/shaders/renderer/obj_draw.wgsl",
 			vertex_entry_point = "vertex_main",
 			fragment_entry_point = "fragment_main",
 			front_face = .CCW,
