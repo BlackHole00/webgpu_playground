@@ -4,6 +4,7 @@
     "enable_hover": true,
     "enable_snippets": true,
     "collections": [
+        { "name": "project", "path": "src" },
         { "name": "shared", "path": "shared" }
     ]
 }

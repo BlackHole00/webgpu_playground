@@ -44,3 +44,5 @@ promise_get :: proc(promise: ^Promise($T)) -> (T, bool) {
 promise_force_free :: proc(promise: ^Promise($T)) {
 	free(promise, promise.allocator)
 }
+
+_ :: runtime
