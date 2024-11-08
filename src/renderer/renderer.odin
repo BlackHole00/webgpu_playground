@@ -60,7 +60,7 @@ Renderer :: struct {
 
 	shader_preprocessor: shader_preprocessor.Shader_Preprocessor,
 
-	layout_manager: Layout_Manager,
+	layout_manager: Memory_Layout_Manager,
 	model_manager: Model_Manager,
 	texture_manager: Texture_Manager,
 	ticker_thread: Wgpu_Ticker_Thread,
@@ -109,14 +109,15 @@ create :: proc(renderer: ^Renderer, descriptor: Descriptor) -> (err: Error) {
 		return err
 	}
 
-	if !layoutmanager_create(
+	if !memorylayoutmanager_create(
 		&renderer.layout_manager,
 		renderer.core.queue,
-		renderer.resources.static_buffers[.Layout_Info],
+		renderer.resources.static_buffers[.Memory_Layout_Info],
 	) {
 		log.errorf("Could not initialize a layout manager")
 		return Common_Error.Generic_Error // TODO(Vicix): Add error
 	}
+
 	modelmanager_create(
 		&renderer.model_manager,
 		Model_Manager_Descriptor {
@@ -140,7 +141,7 @@ create :: proc(renderer: ^Renderer, descriptor: Descriptor) -> (err: Error) {
 destroy :: proc(renderer: ^Renderer) {
 	wgputickerthread_stop_and_destroy(&renderer.ticker_thread)
 
-	shader_preprocessor.destroy(&renderer.shader_preprocessor)
+	renderpipelinemanager_destroy(renderer.render_pipeline_manager)
 
 	texturemanager_destroy(renderer.texture_manager)
 	modelmanager_destroy(renderer.model_manager)

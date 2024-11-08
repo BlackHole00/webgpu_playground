@@ -21,35 +21,35 @@ import "vendor:wgpu"
 //       vertex_sizes = [8]u32 { 0 = size_of([3]f32), 1 = size_of([2]f32)}
 //   }
 // Please note that a single layout can only support 8 different sources and one must be provided at every moment
-Layout :: distinct u32
-INVALID_LAYOUT :: max(Layout)
+Memory_Layout :: distinct u32
+INVALID_LAYOUT :: max(Memory_Layout)
 
 Vertex_Word :: u32
 
-Layout_Info :: struct {
+Memory_Layout_Info :: struct {
 	indices_count : u32, // in range 0..8
-	vertex_sizes  : [MAX_LAYOUT_INDICES]u32,
+	source_sizes  : [MAX_LAYOUT_INDICES]u32,
 }
 
-Layout_Descriptor :: struct {
+Memory_Layout_Descriptor :: struct {
 	indices_count: u32,
-	vertex_sizes: []u32,
+	source_sizes: []u32,
 }
 
 // TODO(Vicix): Migrate to Mirrored_Buffer
-Layout_Manager :: struct {
-	infos: [dynamic]Layout_Info, // capacity: 128
+Memory_Layout_Manager :: struct {
+	infos: [dynamic]Memory_Layout_Info, // capacity: 128
 	queue: wgpu.Queue,
 	backing_buffer: wgpu.Buffer, // required_size: 128 * size_of(Layout_Info)
 }
 
-layoutmanager_create :: proc(
-	manager: ^Layout_Manager,
+memorylayoutmanager_create :: proc(
+	manager: ^Memory_Layout_Manager,
 	queue: wgpu.Queue,
 	backing_buffer: wgpu.Buffer,
 	allocator := context.allocator,
 ) -> bool {
-	if wgpu.BufferGetSize(backing_buffer) < MAX_LAYOUTS * size_of(Layout_Info) {
+	if wgpu.BufferGetSize(backing_buffer) < MAX_LAYOUTS * size_of(Memory_Layout_Info) {
 		log.errorf("Could not create a layout manager: The provided backing buffer is non big enough")
 		return false
 	}
@@ -57,18 +57,21 @@ layoutmanager_create :: proc(
 		log.warnf("The provided backing buffer does not have the .Storage usage")
 	}
 
-	manager.infos = make([dynamic]Layout_Info, 0, MAX_LAYOUTS, allocator)
+	manager.infos = make([dynamic]Memory_Layout_Info, 0, MAX_LAYOUTS, allocator)
 	manager.queue = queue
 	manager.backing_buffer = backing_buffer
 
 	return true
 }
 
-layoutmanager_destroy :: proc(manager: Layout_Manager) {
+memorylayoutmanager_destroy :: proc(manager: Memory_Layout_Manager) {
 	delete(manager.infos)
 }
 
-layoutmanager_register_layout :: proc(manager: ^Layout_Manager, descriptor: Layout_Descriptor) -> (Layout, bool) {
+memorylayoutmanager_register_layout :: proc(
+	manager: ^Memory_Layout_Manager,
+	descriptor: Memory_Layout_Descriptor,
+) -> (Memory_Layout, bool) {
 	descriptor := descriptor
 
 	if len(manager.infos) >= MAX_LAYOUTS {
@@ -82,23 +85,23 @@ layoutmanager_register_layout :: proc(manager: ^Layout_Manager, descriptor: Layo
 
 	layout_idx := len(manager.infos)
 
-	info: Layout_Info
+	info: Memory_Layout_Info
 	info.indices_count = descriptor.indices_count
-	copy(info.vertex_sizes[:], descriptor.vertex_sizes)
+	copy(info.source_sizes[:], descriptor.source_sizes)
 
 	append(&manager.infos, info)
 	wgpu.QueueWriteBuffer(
 		manager.queue,
 		manager.backing_buffer,
 		data = &info,
-		bufferOffset = (u64)(layout_idx) * size_of(Layout_Info),
-		size = size_of(Layout_Info),
+		bufferOffset = (u64)(layout_idx) * size_of(Memory_Layout_Info),
+		size = size_of(Memory_Layout_Info),
 	)
 
-	return (Layout)(layout_idx), true
+	return (Memory_Layout)(layout_idx), true
 }
 
-layoutmanager_get_info :: proc(manager: Layout_Manager, layout: Layout) -> (^Layout_Info, bool) {
+memorylayoutmanager_get_info :: proc(manager: Memory_Layout_Manager, layout: Memory_Layout) -> (^Memory_Layout_Info, bool) {
 	if (uint)(layout) >= len(manager.infos) {
 		return nil, false
 	}

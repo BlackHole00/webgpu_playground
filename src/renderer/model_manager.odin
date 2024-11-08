@@ -10,25 +10,25 @@ Model :: distinct uint
 INVALID_MODEL :: max(Model)
 
 Model_Info :: struct #packed {
-	layout: Layout,
-	uberindex_offset: u32,
+	memory_layout: Memory_Layout,
+	first_uberindex_offset: u32,
 	uberindex_count: u32,
 	textures: [8]Texture,
 }
 
 Model_Manager_Descriptor :: struct {
-	layout_manager: ^Layout_Manager,
+	layout_manager: ^Memory_Layout_Manager,
 	info_backing_buffer: ^wgputils.Mirrored_Buffer,
 	vertices_backing_buffer: ^wgputils.Dynamic_Buffer,
 	indices_backing_buffer: ^wgputils.Dynamic_Buffer,
 }
 
 Model_Manager :: struct {
-	layout_manager: ^Layout_Manager,
+	layout_manager: ^Memory_Layout_Manager,
 	info_backing: ^wgputils.Mirrored_Buffer,
 	vertices_backing: ^wgputils.Dynamic_Buffer,
 	indices_backing: ^wgputils.Dynamic_Buffer,
-	obj_model_layout: Layout,
+	obj_model_layout: Memory_Layout,
 }
 
 modelmanager_create :: proc(
@@ -41,9 +41,9 @@ modelmanager_create :: proc(
 	manager.indices_backing = descriptor.indices_backing_buffer
 	manager.layout_manager = descriptor.layout_manager
 
-	manager.obj_model_layout, _ = layoutmanager_register_layout(manager.layout_manager, Layout_Descriptor {
+	manager.obj_model_layout, _ = memorylayoutmanager_register_layout(manager.layout_manager, Memory_Layout_Descriptor {
 		indices_count = 3,
-		vertex_sizes  = []u32 {
+		source_sizes  = []u32 {
 			0 = 3, // position: [3]f32
 			1 = 2, // uv: [2]f32
 			2 = 3, // normal: [3]f32
@@ -55,12 +55,12 @@ modelmanager_destroy :: proc(manager: Model_Manager) {}
 
 modelmanager_register_model_from_data :: proc(
 	manager: Model_Manager,
-	layout: Layout,
+	layout: Memory_Layout,
 	uber_indices: []u32,
 	vertex_datas: []Vertex_Word,
 	adjust_indices := true,
 ) -> (Model, bool) {
-	layout_info, layout_info_ok := layoutmanager_get_info(manager.layout_manager^, layout)
+	layout_info, layout_info_ok := memorylayoutmanager_get_info(manager.layout_manager^, layout)
 	if !layout_info_ok {
 		log.errorf("Could not register a model: the provided layout is not valid")
 		return INVALID_MODEL, false
@@ -86,8 +86,8 @@ modelmanager_register_model_from_data :: proc(
 	model_idx := wgputils.mirroredbuffer_len(manager.info_backing^)
 
 	wgputils.mirroredbuffer_append(manager.info_backing, &Model_Info {
-		layout = layout,
-		uberindex_offset = (u32)(index_offset),
+		memory_layout = layout,
+		first_uberindex_offset = (u32)(index_offset),
 		uberindex_count = (u32)(len(uber_indices)) / layout_info.indices_count,
 		// TODO(Vicix): textures = ...
 	})
@@ -99,13 +99,13 @@ modelmanager_register_model_from_data :: proc(
 
 modelmanager_register_model_from_sources :: proc(
 	manager: Model_Manager,
-	layout: Layout,
+	layout: Memory_Layout,
 	// a slice containing the indices of each source (stored via pararrel slices)
 	index_sources: [][]u32,
 	// a slice containing the different vertex sources. The each index is relative to this vector
 	vertex_sources: [][]Vertex_Word,
 ) -> (Model, bool) {
-	layout_info, layout_info_ok := layoutmanager_get_info(manager.layout_manager^, layout)
+	layout_info, layout_info_ok := memorylayoutmanager_get_info(manager.layout_manager^, layout)
 	if !layout_info_ok {
 		log.errorf("Could not register a model: the provided layout is not valid")
 		return INVALID_MODEL, false

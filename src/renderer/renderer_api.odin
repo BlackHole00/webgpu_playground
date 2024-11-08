@@ -3,8 +3,8 @@ package renderer
 import "core:log"
 
 // LOW LEVEL ACCESS
-register_memory_layout :: proc(renderer: ^Renderer, descriptor: Layout_Descriptor) -> (Layout, bool) {
-	layout, layout_ok := layoutmanager_register_layout(&renderer.layout_manager, descriptor)
+register_memory_layout :: proc(renderer: ^Renderer, descriptor: Memory_Layout_Descriptor) -> (Memory_Layout, bool) {
+	layout, layout_ok := memorylayoutmanager_register_layout(&renderer.layout_manager, descriptor)
 	if !layout_ok {
 		log.warnf("Could not register the memory layout with descriptor %v", descriptor)
 		return INVALID_LAYOUT, false

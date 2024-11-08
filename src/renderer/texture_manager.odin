@@ -24,19 +24,22 @@ Texture_Info :: struct {
 
 Texture_Manager :: struct {
 	allocator: runtime.Allocator,
-	backing_texture: ^wgputils.Dynamic_Texture,
+	backing_texture_atlas: ^wgputils.Dynamic_Texture,
+	backing_info_buffer: ^wgputils.Dynamic_Buffer,
 	textures: [dynamic]Texture_Info,
 	last_uploaded_texture_idx: int,
 }
 
 texturemanager_create :: proc(
 	manager: ^Texture_Manager,
-	backing_texture: ^wgputils.Dynamic_Texture,
+	backing_texture_atlas: ^wgputils.Dynamic_Texture,
+	backin_info_buffer: ^wgputils.Dynamic_Buffer,
 	allocator := context.allocator,
 ) {
 	manager.allocator = allocator
 
-	manager.backing_texture = backing_texture
+	manager.backing_texture_atlas = backing_texture_atlas
+	manager.backing_info_buffer = backin_info_buffer
 	manager.textures = make([dynamic]Texture_Info, allocator)
 }
 
@@ -105,7 +108,7 @@ texturemanager_upload_textures :: proc(manager: ^Texture_Manager) -> bool {
 		return true
 	}
 
-	atlas_size := wgputils.dynamictexture_get_size(manager.backing_texture^)
+	atlas_size := wgputils.dynamictexture_get_size(manager.backing_texture_atlas^)
 	should_resize_atlas := false
 
 	packer: rp.Context
@@ -133,7 +136,7 @@ texturemanager_upload_textures :: proc(manager: ^Texture_Manager) -> bool {
 	}
 
 	if should_resize_atlas {
-		if !wgputils.dynamictexture_resize(manager.backing_texture, atlas_size, true) {
+		if !wgputils.dynamictexture_resize(manager.backing_texture_atlas, atlas_size, true) {
 			log.errorf("Could not upload the textures to the atlas.")
 			return false
 		}
@@ -146,12 +149,19 @@ texturemanager_upload_textures :: proc(manager: ^Texture_Manager) -> bool {
 		texture := &manager.textures[texture_idx]
 
 		wgputils.dynamictexture_write(
-			manager.backing_texture^,
+			manager.backing_texture_atlas^,
 			wgpu.Origin3D { (u32)(texture.atlas_location.?.x), (u32)(texture.atlas_location.?.y), 0 },
 			.All,
 			wgpu.Extent3D { (u32)(texture.size.x), (u32)(texture.size.y), 1 },
 			texture.data,
 			4,
+		)
+		wgputils.dynamicbuffer_append_value(
+			manager.backing_info_buffer,
+			&Texture_Gpu_Info {
+				atlas_location = { (u32)(texture.atlas_location.?.x), (u32)(texture.atlas_location.?.y) },
+				size = { (u32)(texture.size.x), (u32)(texture.size.y) },
+			},
 		)
 
 		delete(texture.data)
@@ -160,6 +170,12 @@ texturemanager_upload_textures :: proc(manager: ^Texture_Manager) -> bool {
 
 	manager.last_uploaded_texture_idx = len(manager.textures) - 1
 	return true
+}
+
+@(private="file")
+Texture_Gpu_Info :: struct {
+	atlas_location: [2]u32,
+	size: [2]u32,
 }
 
 @(private="file")

@@ -282,9 +282,9 @@ resources_recreate_volatile_bindgroups :: proc(renderer: ^Renderer) -> bool {
 				},
 				wgpu.BindGroupEntry {
 					binding = 1,
-					buffer = renderer.resources.static_buffers[.Layout_Info],
+					buffer = renderer.resources.static_buffers[.Memory_Layout_Info],
 					offset = 0,
-					size = MAX_LAYOUTS * size_of(Layout_Info),
+					size = MAX_LAYOUTS * size_of(Memory_Layout_Info),
 				},
 				wgpu.BindGroupEntry {
 					binding = 2,

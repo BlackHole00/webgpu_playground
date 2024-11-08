@@ -14,7 +14,7 @@ Static_Buffer_Type :: enum {
 	Application_State,
 	// Holds the informations of the various vertex layouts. It is static 
 	// because the renderer only supports up to 128 layouts.
-	Layout_Info,
+	Memory_Layout_Info,
 }
 
 Dynamic_Buffer_Type :: enum {
@@ -28,6 +28,9 @@ Dynamic_Buffer_Type :: enum {
 	// index and the model index). Each draw call uses a differect section of
 	// this buffer, via a dynamic offset
 	Draw_Call_Info,
+	// Holds the information related to each texture, most importanly its 
+	// format, size and position inside the atlas
+	Texture_Info,
 	// Holds the view and projection matrices for every camera present in the
 	// scenes
 	Cameras,
@@ -74,9 +77,9 @@ resources_init_static_buffers :: proc(renderer: ^Renderer) -> bool {
 			size = 64,
 			label = "Uniform Application State",
 		},
-		.Layout_Info = {
+		.Memory_Layout_Info = {
 			usage = { .Storage, .CopyDst },
-			size = size_of(Layout_Info) * MAX_LAYOUTS,
+			size = size_of(Memory_Layout_Info) * MAX_LAYOUTS,
 			label = "Layout Info",
 		},
 	}
