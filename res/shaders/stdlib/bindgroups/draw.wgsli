@@ -1,0 +1,9 @@
+#pragma once
+
+#include <stdlib/constants.wgsli>
+#include <stdlib/types.wgsli>
+
+@group(config::draw_bindgroup_id) @binding(0) var<uniform> bg::draw::call_info: Draw_Call_Info;
+@group(config::draw_bindgroup_id) @binding(1) var<storage, read> bg::draw::camera_info: array<Camera_Info>;
+@group(config::draw_bindgroup_id) @binding(2) var<storage, read> bg::draw::objects: array<Object>;
+// ... ambiental data, lights data...

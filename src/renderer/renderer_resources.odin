@@ -180,10 +180,10 @@ resources_init :: proc(renderer: ^Renderer) -> (err: Error) {
 		log.errorf("Could not init the bing groups")
 		return Common_Error.Bind_Group_Creation_Failed
 	}
-	if !resources_init_pipelines(renderer) {
-		log.errorf("Could not init the pipelines")
-		return Common_Error.Pipeline_Creation_Failed
-	}
+	// if !resources_init_pipelines(renderer) {
+	// 	log.errorf("Could not init the pipelines")
+	// 	return Common_Error.Pipeline_Creation_Failed
+	// }
 
 	return nil
 }
@@ -392,22 +392,18 @@ resources_init_bindgroups :: proc(renderer: ^Renderer) -> bool {
 }
 
 resources_init_pipelines :: proc(renderer: ^Renderer) -> bool {
-	renderer.resources.pipelines[.Obj_Draw] = renderpipeline_build(
-		renderer,
-		&Render_Pipeline_Descriptor {
-			source_location = "res/shaders/renderer/obj_draw.wgsl",
+	renderer.resources.pipelines[.Obj_Draw], _ = renderpipelinemanager_create_wgpupipeline(
+		&renderer.render_pipeline_manager,
+		Render_Pipeline_Descriptor {
+			layout = 0,
+			render_target_layout = .DepthColor,
+			label = "Obj Draw",
+			source = "res/shaders/renderer/obj_draw.wgsl",
+			front_face = .CW,
+			cull_mode = .None,
 			vertex_entry_point = "vertex_main",
 			fragment_entry_point = "fragment_main",
-			front_face = .CCW,
-			cull_mode = .None,
-			bindgroups = []Bindgroup_Type {
-				.Data,
-				.Draw,
-				.Utilities,
-			},
-			render_target = .Default,
-			depth_test = true,
-			multisample = false,
+			blend_state = .Default,
 		},
 	)
 

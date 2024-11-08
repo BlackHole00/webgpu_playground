@@ -1,0 +1,14 @@
+#pragma once
+
+#include <stdlib/constants.wgsli>
+#include <stdlib/types.wgsli>
+
+@group(config::data_bindgroup_id) @binding(0) var<uniform> bg::data::application_state: Application_State;
+@group(config::data_bindgroup_id) @binding(1)
+var<storage, read> bg::data::memory_layout_info: array<Memory_Layout_Info, config::memory_layout_count>;
+@group(config::data_bindgroup_id) @binding(2) var<storage, read> bg::data::model_info: array<Model_Info>;
+@group(config::data_bindgroup_id) @binding(3) var<storage, read> bg::data::texture_info: array<Texture_Info>;
+@group(config::data_bindgroup_id) @binding(4) var<storage, read> bg::data::vertices: array<u32>;
+@group(config::data_bindgroup_id) @binding(5) var<storage, read> bg::data::indices: array<u32>;
+@group(config::data_bindgroup_id) @binding(6) var<storage, read> bg::data::object_info: array<Object_Info>;
+@group(config::data_bindgroup_id) @binding(7) var bg::data::texture_atlas: texture_2d<f32>;

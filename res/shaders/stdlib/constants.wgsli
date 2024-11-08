@@ -1,10 +1,26 @@
 #pragma once
 
-const layout_count: u32 = 128u;
-
-const OPENGL_TO_WGPU_MATRIX = mat4x4f(
+const math::OPENGL_TO_WGPU_MATRIX = mat4x4f(
 	1.0f, 0.0f, 0.0f, 0.0f,
 	0.0f, 1.0f, 0.0f, 0.0f,
 	0.0f, 0.0f, 0.5f, 0.5f,
 	0.0f, 0.0f, 0.0f, 1.0f,
 );
+
+const config::data_bindgroup_id = 0;
+const config::draw_bindgroup_id = 1;
+const config::utils_bindgroup_id = 2;
+
+const config::memory_layout_count = 128;
+const config::memory_layout_max_indices = 8;
+
+override config::memory_layout_indices_count: u32;
+override config::memory_layout_index_0_size: u32;
+override config::memory_layout_index_1_size: u32;
+override config::memory_layout_index_2_size: u32;
+override config::memory_layout_index_3_size: u32;
+override config::memory_layout_index_4_size: u32;
+override config::memory_layout_index_5_size: u32;
+override config::memory_layout_index_6_size: u32;
+override config::memory_layout_index_7_size: u32;
+

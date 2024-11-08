@@ -6,7 +6,6 @@ import "core:log"
 import vmem "core:mem/virtual"
 import "vendor:glfw"
 import "vendor:wgpu"
-import "shader_preprocessor"
 
 Descriptor :: struct {
 	window: glfw.WindowHandle,
@@ -58,11 +57,10 @@ Renderer :: struct {
 		pipelines: [Render_Pipeline_Type]wgpu.RenderPipeline,
 	},
 
-	shader_preprocessor: shader_preprocessor.Shader_Preprocessor,
-
 	layout_manager: Memory_Layout_Manager,
 	model_manager: Model_Manager,
 	texture_manager: Texture_Manager,
+	render_pipeline_manager: Render_Pipeline_Manager,
 	ticker_thread: Wgpu_Ticker_Thread,
 
 	frame: struct {
@@ -98,12 +96,6 @@ create :: proc(renderer: ^Renderer, descriptor: Descriptor) -> (err: Error) {
 	wgputickerthread_begin_frame(&renderer.ticker_thread)
 	defer wgputickerthread_end_frame(&renderer.ticker_thread)
 
-	if err = shader_preprocessor.create(&renderer.shader_preprocessor); err != nil {
-		log.errorf("Could not initialize the shader preprocessor: Got error %v", err)
-		return err
-	}
-	shader_preprocessor.add_include_path(&renderer.shader_preprocessor, "res/shaders")
-
 	if err = resources_init(renderer); err != nil {
 		log.errorf("Could not initialize the renderer resources: Got error %v", err)
 		return err
@@ -127,10 +119,28 @@ create :: proc(renderer: ^Renderer, descriptor: Descriptor) -> (err: Error) {
 			indices_backing_buffer = &renderer.resources.dynamic_buffers[.Model_Indices],
 		},
 	)
+
 	texturemanager_create(
 		&renderer.texture_manager,
 		&renderer.resources.dynamic_textures[.Texture_Atlas],
+		&renderer.resources.dynamic_buffers[.Texture_Info],
 	)
+
+	if !renderpipelinemanager_create(
+		&renderer.render_pipeline_manager,
+		&renderer.layout_manager,
+		renderer.core.device,
+		renderer.core.surface_capabilities.formats[0],
+		&renderer.resources.bindgroup_layouts,
+	) {
+		log.errorf("Could not create a render pipeline manager")
+		return Common_Error.Generic_Error
+	}
+	if !resources_init_pipelines(renderer) {
+		log.errorf("Could not init the pipelines")
+		return Common_Error.Pipeline_Creation_Failed
+	}
+
 	register_model(renderer, "res/models/LightPole.obj")
 	
 	resize_surface(renderer)

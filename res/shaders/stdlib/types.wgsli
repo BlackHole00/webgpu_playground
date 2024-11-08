@@ -1,21 +1,112 @@
 #pragma once
 
+// `Memory_Layout` is a handle to a `Memory_Layout_Info` contained in 
+// `bg::data::memory_layout_info`. 
+//
+// **WARNING**: the user should not need to access the memory layouts, since all
+// the informations regarding the layout used to draw the current model are
+// provided by the overridables `config::memory_layout_*`
+//
 alias Memory_Layout = u32;
+
+// `Model` is a handle to a `Model_Info` contained in `bg::data::model_info`. A
+//
+// Keep in mind that a shader is specified to a specific **layout**, not a
+// specific object, so the shader might be asked to draw different models, as
+// long as they use the same memory layout.
+//
 alias Model = u32;
+
+// `Texture` is a handle to a `Texture_Info` contained in 
+// `bg::data::texture_info`. 
+//
 alias Texture = u32;
+
+// `Object` is a handle to a `Object_Info` conteained in 
+// `bg::data::object_info`.
+//
+// **WARNING**: the user should not use the model provided into the 
+// `Object_Info` to perform the draw, since a draw call is already bound to a
+// specific model, defined in `bg::draw::draw_call.model`.
+//
 alias Object = u32;
+
+// `Camera` is a handle to a `Camera_Info` contained in `bg::draw::camera_info`.
+// A `Camera_Info` holds information about the camera that should be used to
+// perform the draw, mainly providing the view and projection matrices.
+//
 alias Camera = u32;
 
+// `Application_State` holds basic information related to the state of the 
+// application. It can be accessed from `bg::data::application_state`.
+//
 struct Application_State {
     time: f32,
     viewport_size: vec2u,
 }
 
+// `Memory_Layout_Info` holds information, relative to a `Memory_Layout`, about
+// how the uberindices are stored in the indices buffer and how vertex data can
+// be fetched.
+//
+// Please note that the renderer uses a single buffer for storing the indices of
+// all the models, regardless of the memory format used.
+// A memory layout is allowed to store vertex information from 8 different 
+// sources, thus needing to specify at most 8 indices and at most 8 different
+// source element sizes (specified in word count, not byte size).
+// In the index buffer, for every conventional index, will thus be specified at
+// most 8 consecutives indices. The aggromerate of those indexes is called
+// **`Uberindex`**.
+//
+// Example:
+//    An .obj model file contains for each vertex the following informations:
+//        - position: [3]f32
+//        - uv: [2]f32
+//        - normal: [3]f32
+//    A naive implementation might decide to store all this information in a
+//    conventional way, using only one index buffer. We will have a situation
+//    like the following:
+//        index_buffer: | 0 | 1 | 2 | ... |
+//        vertex_buffer: | p u n | p u n | p u n | ... |
+//    This solution might be expressed with the following `Memory_Layout_Info`:
+//        Memory_Layout_Info {
+//            indices_count = 1,
+//            source_sizes = [8]u32 { 3 + 2 + 3, /* implicit zeros */ },
+//        }
+//    To define a vertex we are in fact using only one index and that index
+//    points to a vertex of 3 + 2 + 3 words (32 bits each). Note that we are
+//    creating an uberindex of 1 index, which is no different than a traditional
+//    one.
+//    
+//    This solution poses the problem of data duplication: the same position,
+//    uv or normal might be duplicated in multiple vertices. To fix this we can 
+//    use multiple indices to define a vertex.
+//    We will have a situation like the following:
+//        index_buffer: | 0 - 12 - 42 | 1 - 13 - 42 | 2 - 12 - 42 | ... |
+//        vertex_buffer: | p | p | p | ... | u | u | ... | n | ... |
+//            indices:     ^- 0              ^- 12         ^- 42
+//    Note how it is possible to reuse the same vertex data.
+//    We can express this use case with the following `Memory_Layout_Info`:
+//        Memory_Layout_Info {
+//            indices_count = 3,
+//            source_sizes = [8]u32 { 3, 2, 3, /* implicit zeros */ },
+//        }
+//    Note that we are constructing an uberindex of 3 indices.
+// 
 struct Memory_Layout_Info {
+    // The number of indices used to specify a vertex.
+    // Must be in range 0..=8.
     indices_count: u32,
-    vertex_sizes: array<u32, 8>,
+    // The source of each vertex source.
+    // source_sizes[:indices_count] is expected to be non zero.
+    // source_sizes[indices_count:] is expected to be zero.
+    source_sizes: array<u32, 8>,
 }
 
+// `Model_Info` holds information, relative to a `Model`, about what memory
+// layout it used to store it and where to find its first uberindex in the
+// `bg::data::indices` buffer and its textures in the `bg::data::texture_atlas`.
+//
 struct Model_Info {
     memory_layout: Memory_Layout,
     first_uberindex_offset: u32,
@@ -23,22 +114,36 @@ struct Model_Info {
     textures: array<Texture, 8>,
 }
 
+// `Texture_Info` holds information, relative to a `Texture`, about the 
+// position of a texture in the atlas (accessible from 
+// `bg::data::texture_atlas`).
+//
 struct Texture_Info {
     atlas_location: vec2u,
     size: vec2u,
 }
 
+//  Object_Info` holds information, relative to a `Object`, about a specific
+// instance of an object related to a specific model, like its position in world
+// space.
+//
 struct Object_Info {
     model: Model,
     object_matrix: mat4x4f,
 }
 
+// `Draw_Call_Info` holds information about the current draw call. It may be
+// accessed with `bg::draw::call_info`.
+//
 struct Draw_Call_Info {
-    camera: Camera,
+    camera_id: Camera,
+    // Specifies which objects to draw, in relation to `bg::draw::objects`.
     object_offset: u32,
     model_id: u32,
 }
 
+// `Camera_Info` holds information about a specific `Camera`.
+//
 struct Camera_Info {
     view_matrix: mat4x4f,
     projection_matrix: mat4x4f,

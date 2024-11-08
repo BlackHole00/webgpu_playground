@@ -1,0 +1,20 @@
+// When including this file multiple files needed to perform a render operation
+// will be included
+//
+// By default including this file declares the following bindgroups:
+// - `bg::data`: Allows access to resources that rarely change between frames
+// - `bg::draw`: Allows access to resources that bound to the current frame
+// - `bg::utilities`: Defines common utilities like samplers
+// It is not possible to remove these bindgroups since the renderer expects them
+// to be in every shader module.
+//
+#pragma once
+
+#include <stdlib/types.wgsli>
+#include <stdlib/constants.wgsli>
+
+#include <stdlib/bindgroups/data.wgsli>
+#include <stdlib/bindgroups/draw.wgsli>
+#include <stdlib/bindgroups/utils.wgsli>
+
+#include <stdlib/gfx.wgsli>

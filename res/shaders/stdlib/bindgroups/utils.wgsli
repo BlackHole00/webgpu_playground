@@ -1,0 +1,6 @@
+#pragma once
+
+#include <stdlib/constants.wgsli>
+
+@group(config::utils_bindgroup_id) @binding(0) var bg::utils::generic_sampler: sampler;
+@group(config::utils_bindgroup_id) @binding(1) var bg::utils::pixelperfect_sampler: sampler;

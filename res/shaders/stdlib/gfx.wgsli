@@ -1,0 +1,119 @@
+#pragma once
+
+#include <stdlib/bindgroups/data.wgsli>
+#include <stdlib/bindgroups/draw.wgsli>
+#include <stdlib/bindgroups/utils.wgsli>
+
+fn gfx::current_model() -> Model {
+    return bg::draw::call_info.model_id;
+}
+fn gfx::current_object(instance_index: u32) -> Object {
+    return bg::draw::objects[bg::draw::call_info.object_offset + instance_index - 1];
+}
+fn gfx::current_camera() -> Camera {
+    return bg::draw::call_info.camera_id;
+}
+
+fn gfx::model_first_uberindex_offset(model: Model) -> u32 {
+    return bg::data::model_info[model].first_uberindex_offset;
+}
+fn gfx::model_uberindex_count(model: Model) -> u32 {
+    return bg::data::model_info[model].uberindex_count;
+}
+fn gfx::model_current_uberindex_offset(model: Model, vertex_index: u32) -> u32 {
+    let first_uberindex_offset = gfx::model_first_uberindex_offset(model);
+    return first_uberindex_offset + config::memory_layout_indices_count * vertex_index;
+}
+fn gfx::model_index_of(model: Model, vertex_index: u32, source_index: u32) -> u32 {
+    let uberindex = gfx::model_current_uberindex_offset(model, vertex_index);
+    return bg::data::indices[uberindex + source_index];
+}
+
+fn gfx::object_model(object: Object) -> Model {
+    return bg::data::object_info[object].model;
+}
+fn gfx::object_matrix(object: Object) -> mat4x4f {
+    return bg::data::object_info[object].object_matrix;
+}
+
+fn gfx::camera_view_matrix(camera: Camera) -> mat4x4f {
+    return bg::draw::camera_info[camera].view_matrix;
+}
+fn gfx::camera_projection_matrix(camera: Camera) -> mat4x4f {
+    return bg::draw::camera_info[camera].projection_matrix;
+}
+
+fn gfx::vertices_read_f32(index: u32) -> f32 {
+    return bitcast<f32>(bg::data::vertices[index]);
+}
+fn gfx::vertices_read_u32(index: u32) -> u32 {
+    return bitcast<u32>(bg::data::vertices[index]);
+}
+fn gfx::vertices_read_i32(index: u32) -> i32 {
+    return bitcast<i32>(bg::data::vertices[index]);
+}
+fn gfx::vertices_read_vec2f(index: u32) -> vec2f {
+    return vec2f(
+        bitcast<f32>(bg::data::vertices[index]),
+        bitcast<f32>(bg::data::vertices[index + 1]),
+    );
+}
+fn gfx::vertices_read_vec2u(index: u32) -> vec2u {
+    return vec2u(
+        bitcast<u32>(bg::data::vertices[index]),
+        bitcast<u32>(bg::data::vertices[index + 1]),
+    );
+}
+fn gfx::vertices_read_vec2i(index: u32) -> vec2i {
+    return vec2i(
+        bitcast<i32>(bg::data::vertices[index]),
+        bitcast<i32>(bg::data::vertices[index + 1]),
+    );
+}
+fn gfx::vertices_read_vec3f(index: u32) -> vec3f {
+    return vec3f(
+        bitcast<f32>(bg::data::vertices[index]),
+        bitcast<f32>(bg::data::vertices[index + 1]),
+        bitcast<f32>(bg::data::vertices[index + 2]),
+    );
+}
+fn gfx::vertices_read_vec3u(index: u32) -> vec3u {
+    return vec3u(
+        bitcast<u32>(bg::data::vertices[index]),
+        bitcast<u32>(bg::data::vertices[index + 1]),
+        bitcast<u32>(bg::data::vertices[index + 2]),
+    );
+}
+fn gfx::vertices_read_vec3i(index: u32) -> vec3i {
+    return vec3i(
+        bitcast<i32>(bg::data::vertices[index]),
+        bitcast<i32>(bg::data::vertices[index + 1]),
+        bitcast<i32>(bg::data::vertices[index + 2]),
+    );
+}
+fn gfx::vertices_read_vec4f(index: u32) -> vec4f {
+    return vec4f(
+        bitcast<f32>(bg::data::vertices[index]),
+        bitcast<f32>(bg::data::vertices[index + 1]),
+        bitcast<f32>(bg::data::vertices[index + 2]),
+        bitcast<f32>(bg::data::vertices[index + 3]),
+    );
+}
+fn gfx::vertices_read_vec4u(index: u32) -> vec4u {
+    return vec4u(
+        bitcast<u32>(bg::data::vertices[index]),
+        bitcast<u32>(bg::data::vertices[index + 1]),
+        bitcast<u32>(bg::data::vertices[index + 2]),
+        bitcast<u32>(bg::data::vertices[index + 3]),
+    );
+}
+fn gfx::vertices_read_vec4i(index: u32) -> vec4i {
+    return vec4i(
+        bitcast<i32>(bg::data::vertices[index]),
+        bitcast<i32>(bg::data::vertices[index + 1]),
+        bitcast<i32>(bg::data::vertices[index + 2]),
+        bitcast<i32>(bg::data::vertices[index + 3]),
+    );
+}
+
+
