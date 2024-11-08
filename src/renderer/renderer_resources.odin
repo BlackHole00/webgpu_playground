@@ -294,10 +294,10 @@ resources_recreate_volatile_bindgroups :: proc(renderer: ^Renderer) -> bool {
 				},
 				wgpu.BindGroupEntry {
 					binding = 3,
-					buffer = renderer.resources.mirrored_buffers[.Texture_Info].handle,
+					buffer = renderer.resources.dynamic_buffers[.Texture_Info].handle,
 					offset = 0,
-					size = (u64)(wgputils.mirroredbuffer_cap(
-						renderer.resources.mirrored_buffers[.Texture_Info],
+					size = (u64)(wgputils.dynamicbuffer_cap(
+						renderer.resources.dynamic_buffers[.Texture_Info],
 					)),
 				},
 				wgpu.BindGroupEntry {
@@ -342,18 +342,12 @@ resources_recreate_volatile_bindgroups :: proc(renderer: ^Renderer) -> bool {
 					binding = 0,
 					buffer = renderer.resources.dynamic_buffers[.Draw_Call_Info].handle,
 					offset = 0,
-					// size = (u64)(wgputils.dynamicbuffer_cap(
-					// 	renderer.resources.dynamic_buffers[.Draw_Call_Info],
-					// )),
 					size = wgpu.WHOLE_SIZE,
 				},
 				wgpu.BindGroupEntry {
 					binding = 1,
 					buffer = renderer.resources.dynamic_buffers[.Cameras].handle,
 					offset = 0,
-					// size = (u64)(wgputils.dynamicbuffer_cap(
-					// 	renderer.resources.dynamic_buffers[.Cameras],
-					// )),
 					size = wgpu.WHOLE_SIZE,
 				},
 				wgpu.BindGroupEntry {

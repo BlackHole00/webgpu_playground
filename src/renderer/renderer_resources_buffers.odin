@@ -40,9 +40,6 @@ Mirrored_Buffer_Type :: enum {
 	// Holds the information related to each model, most importantly the layout
 	// used, the number of indices and the offset of the first one.
 	Model_Info,
-	// Holds the information related to each texture, most importanly its 
-	// format, size and position inside the atlas
-	Texture_Info,
 	// Holds information about each object. Most importantly its model and its
 	// position
 	Objects,
@@ -112,6 +109,10 @@ resources_init_dynamic_buffers :: proc(renderer: ^Renderer) -> bool {
 			usage = { .Storage, .CopySrc, .CopyDst },
 			label = "Model Indices",
 		},
+		.Texture_Info = {
+			usage = { .Storage, .CopySrc, .CopyDst },
+			label = "Texture Info",
+		},
 		.Cameras = {
 			usage = { .Storage, .CopySrc, .CopyDst },
 			label = "Cameras Info",
@@ -139,10 +140,6 @@ resources_init_mirrored_buffers :: proc(renderer: ^Renderer) -> bool {
 		.Model_Info = {
 			usage = { .Storage, .CopySrc, .CopyDst },
 			label = "Model Info",
-		},
-		.Texture_Info = {
-			usage = { .Storage, .CopySrc, .CopyDst },
-			label = "Texture Info",
 		},
 		.Objects = {
 			usage = { .Storage, .CopySrc, .CopyDst },
