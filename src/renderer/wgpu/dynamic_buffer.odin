@@ -97,7 +97,7 @@ dynamicbuffer_append_bytes :: proc(buffer: ^Dynamic_Buffer, data: []byte) -> boo
 }
 
 dynamicbuffer_append_value :: proc(buffer: ^Dynamic_Buffer, value: ^$T) -> bool {
-	return dynamicbuffer_append_bytes(slice.from_ptr(value, 1))
+	return dynamicbuffer_append_slice(buffer, slice.from_ptr(value, 1))
 }
 
 dynamicbuffer_append_buffer :: proc(
