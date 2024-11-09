@@ -12,3 +12,4 @@ var<storage, read> bg::data::memory_layout_info: array<Memory_Layout_Info, confi
 @group(config::data_bindgroup_id) @binding(5) var<storage, read> bg::data::indices: array<u32>;
 @group(config::data_bindgroup_id) @binding(6) var<storage, read> bg::data::object_info: array<Object_Info>;
 @group(config::data_bindgroup_id) @binding(7) var bg::data::texture_atlas: texture_2d<f32>;
+@group(config::data_bindgroup_id) @binding(8) var<storage, read> bg::data::atlas_info: Atlas_Info;

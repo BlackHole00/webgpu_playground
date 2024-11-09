@@ -24,7 +24,9 @@ Texture_Info :: struct {
 
 Texture_Manager :: struct {
 	allocator: runtime.Allocator,
+	queue: wgpu.Queue,
 	backing_texture_atlas: ^wgputils.Dynamic_Texture,
+	backing_atlas_info: wgpu.Buffer,
 	backing_info_buffer: ^wgputils.Dynamic_Buffer,
 	textures: [dynamic]Texture_Info,
 	last_uploaded_texture_idx: int,
@@ -32,15 +34,30 @@ Texture_Manager :: struct {
 
 texturemanager_create :: proc(
 	manager: ^Texture_Manager,
+	queue: wgpu.Queue,
 	backing_texture_atlas: ^wgputils.Dynamic_Texture,
 	backin_info_buffer: ^wgputils.Dynamic_Buffer,
+	backing_atlas_info: wgpu.Buffer,
 	allocator := context.allocator,
 ) {
 	manager.allocator = allocator
 
 	manager.backing_texture_atlas = backing_texture_atlas
+	manager.backing_atlas_info = backing_atlas_info
 	manager.backing_info_buffer = backin_info_buffer
+	manager.queue = queue
 	manager.textures = make([dynamic]Texture_Info, allocator)
+
+	atlas_size := wgputils.dynamictexture_get_size(manager.backing_texture_atlas^)
+	wgpu.QueueWriteBuffer(
+		manager.queue,
+		manager.backing_atlas_info,
+		0,
+		&Atlas_Info {
+			size = { atlas_size.width, atlas_size.height },
+		},
+		size = size_of(Atlas_Info),
+	)
 }
 
 texturemanager_destroy :: proc(manager: Texture_Manager) {
@@ -51,6 +68,22 @@ texturemanager_destroy :: proc(manager: Texture_Manager) {
 	}
 
 	delete(manager.textures)
+}
+
+texturemanager_is_texture_valid :: proc(manager: Texture_Manager, texture: Texture) -> bool {
+	return (int)(texture) < len(manager.textures)
+}
+
+texturemanager_is_texture_uploaded :: proc(manager: Texture_Manager, texture: Texture) -> bool {
+	return texturemanager_is_texture_valid(manager, texture) && manager.last_uploaded_texture_idx >= (int)(texture)
+}
+
+texturemanager_get_texture_info :: proc(manager: Texture_Manager, texture: Texture) -> (^Texture_Info, bool) {
+	if !texturemanager_is_texture_valid(manager, texture) {
+		return nil, false
+	}
+
+	return &manager.textures[texture], true
 }
 
 texturemanager_register_texture_from_file :: proc(manager: ^Texture_Manager, file: string) -> (Texture, bool) {
@@ -140,6 +173,15 @@ texturemanager_upload_textures :: proc(manager: ^Texture_Manager) -> bool {
 			log.errorf("Could not upload the textures to the atlas.")
 			return false
 		}
+		wgpu.QueueWriteBuffer(
+			manager.queue,
+			manager.backing_atlas_info,
+			0,
+			&Atlas_Info {
+				size = { atlas_size.width, atlas_size.height },
+			},
+			size = size_of(Atlas_Info),
+		)
 	}
 
 	texturemanager_apply_rp_rect_list(manager^, rects)
@@ -147,6 +189,7 @@ texturemanager_upload_textures :: proc(manager: ^Texture_Manager) -> bool {
 	// TODO(Vicix): Find a better way to do this (texture mapping)
 	for texture_idx in manager.last_uploaded_texture_idx..<len(manager.textures) {
 		texture := &manager.textures[texture_idx]
+		log.info(texture.atlas_location, texture.size)
 
 		wgputils.dynamictexture_write(
 			manager.backing_texture_atlas^,
@@ -170,6 +213,11 @@ texturemanager_upload_textures :: proc(manager: ^Texture_Manager) -> bool {
 
 	manager.last_uploaded_texture_idx = len(manager.textures) - 1
 	return true
+}
+
+@(private)
+Atlas_Info :: struct {
+	size: [2]u32,
 }
 
 @(private="file")

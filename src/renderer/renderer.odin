@@ -110,27 +110,30 @@ create :: proc(renderer: ^Renderer, descriptor: Descriptor) -> (err: Error) {
 		return Common_Error.Generic_Error // TODO(Vicix): Add error
 	}
 
+	texturemanager_create(
+		&renderer.texture_manager,
+		renderer.core.queue,
+		&renderer.resources.dynamic_textures[.Texture_Atlas],
+		&renderer.resources.dynamic_buffers[.Texture_Info],
+		renderer.resources.static_buffers[.Atlas_Info],
+	)
+
 	modelmanager_create(
 		&renderer.model_manager,
 		Model_Manager_Descriptor {
 			layout_manager = &renderer.layout_manager,
+			texture_manager = &renderer.texture_manager,
 			info_backing_buffer = &renderer.resources.mirrored_buffers[.Model_Info],
 			vertices_backing_buffer = &renderer.resources.dynamic_buffers[.Model_Vertices],
 			indices_backing_buffer = &renderer.resources.dynamic_buffers[.Model_Indices],
 		},
 	)
 
-	texturemanager_create(
-		&renderer.texture_manager,
-		&renderer.resources.dynamic_textures[.Texture_Atlas],
-		&renderer.resources.dynamic_buffers[.Texture_Info],
-	)
-
 	if !renderpipelinemanager_create(
 		&renderer.render_pipeline_manager,
 		&renderer.layout_manager,
 		renderer.core.device,
-		renderer.core.surface_capabilities.formats[0],
+		.BGRA8Unorm,
 		&renderer.resources.bindgroup_layouts,
 	) {
 		log.errorf("Could not create a render pipeline manager")
@@ -184,7 +187,7 @@ resize_surface_manual :: proc(renderer: ^Renderer, size: [2]uint) -> bool {
 		device = renderer.core.device,
 		width = (u32)(size.x),
 		height = (u32)(size.y),
-		format = renderer.core.surface_capabilities.formats[0],
+		format = .BGRA8Unorm,
 		usage = { .RenderAttachment },
 		presentMode = .Fifo,
 		alphaMode = .Auto,

@@ -15,6 +15,8 @@ Static_Buffer_Type :: enum {
 	// Holds the informations of the various vertex layouts. It is static 
 	// because the renderer only supports up to 128 layouts.
 	Memory_Layout_Info,
+	// Holds the information of the texture atlas.
+	Atlas_Info,
 }
 
 Dynamic_Buffer_Type :: enum {
@@ -77,6 +79,11 @@ resources_init_static_buffers :: proc(renderer: ^Renderer) -> bool {
 		.Memory_Layout_Info = {
 			usage = { .Storage, .CopyDst },
 			size = size_of(Memory_Layout_Info) * MAX_LAYOUTS,
+			label = "Layout Info",
+		},
+		.Atlas_Info = {
+			usage = { .Storage, .CopyDst },
+			size = size_of(Atlas_Info),
 			label = "Layout Info",
 		},
 	}

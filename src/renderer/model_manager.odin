@@ -1,6 +1,7 @@
 package renderer
 
 import "core:log"
+import "core:strings"
 import "core:slice"
 import "core:mem"
 import obj "shared:tinyobjloader"
@@ -9,15 +10,18 @@ import wgputils "wgpu"
 Model :: distinct uint
 INVALID_MODEL :: max(Model)
 
+MODEL_MAX_TEXTURES :: 8
+
 Model_Info :: struct #packed {
 	memory_layout: Memory_Layout,
 	first_uberindex_offset: u32,
 	uberindex_count: u32,
-	textures: [8]Texture,
+	textures: [MODEL_MAX_TEXTURES]Texture,
 }
 
 Model_Manager_Descriptor :: struct {
 	layout_manager: ^Memory_Layout_Manager,
+	texture_manager: ^Texture_Manager,
 	info_backing_buffer: ^wgputils.Mirrored_Buffer,
 	vertices_backing_buffer: ^wgputils.Dynamic_Buffer,
 	indices_backing_buffer: ^wgputils.Dynamic_Buffer,
@@ -25,6 +29,7 @@ Model_Manager_Descriptor :: struct {
 
 Model_Manager :: struct {
 	layout_manager: ^Memory_Layout_Manager,
+	texture_manager: ^Texture_Manager,
 	info_backing: ^wgputils.Mirrored_Buffer,
 	vertices_backing: ^wgputils.Dynamic_Buffer,
 	indices_backing: ^wgputils.Dynamic_Buffer,
@@ -36,10 +41,11 @@ modelmanager_create :: proc(
 	descriptor: Model_Manager_Descriptor,
 	allocator := context.allocator,
 ) {
-	manager.info_backing = descriptor.info_backing_buffer
+	manager.info_backing     = descriptor.info_backing_buffer
 	manager.vertices_backing = descriptor.vertices_backing_buffer
-	manager.indices_backing = descriptor.indices_backing_buffer
-	manager.layout_manager = descriptor.layout_manager
+	manager.indices_backing  = descriptor.indices_backing_buffer
+	manager.layout_manager   = descriptor.layout_manager
+	manager.texture_manager  = descriptor.texture_manager
 
 	manager.obj_model_layout, _ = memorylayoutmanager_register_layout(manager.layout_manager, Memory_Layout_Descriptor {
 		indices_count = 3,
@@ -58,12 +64,31 @@ modelmanager_register_model_from_data :: proc(
 	layout: Memory_Layout,
 	uber_indices: []u32,
 	vertex_datas: []Vertex_Word,
+	textures: []Texture,
 	adjust_indices := true,
 ) -> (Model, bool) {
 	layout_info, layout_info_ok := memorylayoutmanager_get_info(manager.layout_manager^, layout)
 	if !layout_info_ok {
 		log.errorf("Could not register a model: the provided layout is not valid")
 		return INVALID_MODEL, false
+	}
+
+	if len(textures) > MODEL_MAX_TEXTURES {
+		log.errorf(
+			"Could not register a model: the provided textures are too much (%d supported, %d found)",
+			MODEL_MAX_TEXTURES,
+			len(textures),
+		)
+		return INVALID_MODEL, false
+	}
+	for texture in textures {
+		if !texturemanager_is_texture_valid(manager.texture_manager^, texture) {
+			log.errorf(
+				"Could not register a model: The provided texture %d is not valid",
+				texture,
+			)
+			return INVALID_MODEL, false
+		}
 	}
 
 	if len(uber_indices) % (int)(layout_info.indices_count) != 0 {
@@ -85,12 +110,14 @@ modelmanager_register_model_from_data :: proc(
 	index_offset := wgputils.dynamicbuffer_len(manager.indices_backing^) / size_of(u32)
 	model_idx := wgputils.mirroredbuffer_len(manager.info_backing^)
 
-	wgputils.mirroredbuffer_append(manager.info_backing, &Model_Info {
+	model_info := Model_Info {
 		memory_layout = layout,
 		first_uberindex_offset = (u32)(index_offset),
 		uberindex_count = (u32)(len(uber_indices)) / layout_info.indices_count,
-		// TODO(Vicix): textures = ...
-	})
+	}
+	copy(model_info.textures[:], textures)
+
+	wgputils.mirroredbuffer_append(manager.info_backing, &model_info)
 	wgputils.dynamicbuffer_append(manager.vertices_backing, vertex_datas)
 	wgputils.dynamicbuffer_append(manager.indices_backing, uber_indices)
 
@@ -104,6 +131,7 @@ modelmanager_register_model_from_sources :: proc(
 	index_sources: [][]u32,
 	// a slice containing the different vertex sources. The each index is relative to this vector
 	vertex_sources: [][]Vertex_Word,
+	textures: []Texture,
 ) -> (Model, bool) {
 	layout_info, layout_info_ok := memorylayoutmanager_get_info(manager.layout_manager^, layout)
 	if !layout_info_ok {
@@ -159,14 +187,22 @@ modelmanager_register_model_from_sources :: proc(
 
 	vertex_offset := 0
 	for vertex_source in vertex_sources {
-		mem.copy_non_overlapping(&vertex_buffer[vertex_offset], raw_data(vertex_source), len(vertex_source) * size_of(Vertex_Word))
+		mem.copy_non_overlapping(
+			&vertex_buffer[vertex_offset],
+			raw_data(vertex_source),
+			len(vertex_source) * size_of(Vertex_Word),
+		)
 		vertex_offset += len(vertex_source)
 	}
 
-	return modelmanager_register_model_from_data(manager, layout, index_buffer, vertex_buffer)
+	return modelmanager_register_model_from_data(manager, layout, index_buffer, vertex_buffer, textures)
 }
 
-modelmanager_register_model_from_obj :: proc(manager: Model_Manager, obj_path: string) -> (Model, bool) {
+modelmanager_register_model_from_obj :: proc(
+	manager: Model_Manager,
+	obj_path: string,
+	mtl_path: Maybe(string) = nil,
+) -> (Model, bool) {
 	attrib, shapes, materials, model_err := obj.parse_obj(obj_path, { .Triangulate })
 	if model_err != .Success {
 		log.errorf(
@@ -177,6 +213,56 @@ modelmanager_register_model_from_obj :: proc(manager: Model_Manager, obj_path: s
 		return INVALID_MODEL, false
 	}
 	defer obj.free(attrib, shapes, materials)
+
+	if mtl_path, mtl_ok := mtl_path.?; mtl_ok {
+		mtl_materials, mtl_err := obj.parse_mtl(mtl_path, obj_path)
+		if mtl_err != .Success {
+			log.errorf(
+				"Could not register the model %s: Could not parse the corrisponding mtl file. Got error: %v",
+				obj_path,
+				model_err,
+			)
+			return INVALID_MODEL, false
+		}
+
+		obj.materials_free(materials)
+		materials = mtl_materials
+	}
+
+	textures: [8]Texture
+	texture_count := 0
+
+	log.info(materials)
+	for material in materials {
+		if material.name == "none" {
+			continue
+		}
+
+		if material.diffuse_texname != "" {
+			texture, texture_ok := texturemanager_register_texture(
+				manager.texture_manager,
+				// TODO(Vicix): Do not hardcode
+				strings.concatenate(
+					[]string {
+						"res/textures/",
+						strings.clone_from_cstring(material.diffuse_texname, context.temp_allocator),
+					},
+					context.temp_allocator,
+				),
+			)
+			if !texture_ok {
+				log.errorf(
+					"Could not register the model %s: Could not load the texture %s",
+					obj_path,
+					material.diffuse_texname,
+				)
+				return INVALID_MODEL, false
+			}
+
+			textures[texture_count] = texture
+			texture_count += 1
+		}
+	}
 
 	vertex_sources: [3][]Vertex_Word
 	vertex_sources[0] = slice.reinterpret([]Vertex_Word, attrib.vertices)
@@ -199,6 +285,7 @@ modelmanager_register_model_from_obj :: proc(manager: Model_Manager, obj_path: s
 		manager.obj_model_layout,
 		index_sources[:],
 		vertex_sources[:],
+		textures[:texture_count],
 	)
 }
 

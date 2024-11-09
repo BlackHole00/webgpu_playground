@@ -27,7 +27,7 @@ renderer_get_mirrored_buffer :: proc(renderer: ^Renderer, type: Mirrored_Buffer_
 BINDGROUP_LAYOUT_DESCRIPTORS := [Bindgroup_Type]wgpu.BindGroupLayoutDescriptor {
 	.Data = wgpu.BindGroupLayoutDescriptor {
 		label = "Renderer Shared Data BindGroup Layout",
-		entryCount = 8,
+		entryCount = 9,
 		entries = raw_data([]wgpu.BindGroupLayoutEntry {
 			wgpu.BindGroupLayoutEntry { // Layout_Infos
 				binding = 0,
@@ -97,6 +97,15 @@ BINDGROUP_LAYOUT_DESCRIPTORS := [Bindgroup_Type]wgpu.BindGroupLayoutDescriptor {
 					sampleType = .Float,
 					viewDimension = ._2D,
 					multisampled = false,
+				},
+			},
+			wgpu.BindGroupLayoutEntry { // Atlas Info
+				binding = 8,
+				visibility = { .Vertex, .Fragment },
+				buffer = wgpu.BufferBindingLayout {
+					type = .ReadOnlyStorage,
+					hasDynamicOffset = false,
+					minBindingSize = 0,
 				},
 			},
 		}),
@@ -272,7 +281,7 @@ resources_recreate_volatile_bindgroups :: proc(renderer: ^Renderer) -> bool {
 		&wgpu.BindGroupDescriptor {
 			label = "Renderer Shared Data BindGroup Layout",
 			layout = renderer.resources.bindgroup_layouts[.Data],
-			entryCount = 8,
+			entryCount = 9,
 			entries = raw_data([]wgpu.BindGroupEntry {
 				wgpu.BindGroupEntry {
 					binding = 0,
@@ -327,6 +336,12 @@ resources_recreate_volatile_bindgroups :: proc(renderer: ^Renderer) -> bool {
 				wgpu.BindGroupEntry {
 					binding = 7,
 					textureView = texture_atlas_view,
+				},
+				wgpu.BindGroupEntry {
+					binding = 8,
+					buffer = renderer.resources.static_buffers[.Atlas_Info],
+					offset = 0,
+					size = size_of(Atlas_Info),
 				},
 			}),
 		},
@@ -399,8 +414,8 @@ resources_init_pipelines :: proc(renderer: ^Renderer) -> bool {
 			render_target_layout = .DepthColor,
 			label = "Obj Draw",
 			source = "res/shaders/renderer/obj_draw.wgsl",
-			front_face = .CW,
-			cull_mode = .None,
+			front_face = .CCW,
+			cull_mode = .Back,
 			vertex_entry_point = "vertex_main",
 			fragment_entry_point = "fragment_main",
 			blend_state = .Default,

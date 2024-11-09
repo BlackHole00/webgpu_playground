@@ -149,3 +149,7 @@ struct Camera_Info {
     projection_matrix: mat4x4f,
 }
 
+struct Atlas_Info {
+    size: vec2u,
+}
+
