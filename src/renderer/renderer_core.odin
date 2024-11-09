@@ -70,7 +70,7 @@ core_check_glfw_window :: proc(window: glfw.WindowHandle) -> bool {
 
 core_instance_init :: proc(renderer: ^Renderer) -> bool {
 	when ODIN_OS == .Windows {
-		BACKENDS :: wgpu.InstanceBackendFlags { .Vulkan, .DX12, .DX11, .GL }
+		BACKENDS :: wgpu.InstanceBackendFlags { .Vulkan, .DX12, .GL }
 	} else when ODIN_OS == .Darwin {
 		BACKENDS :: wgpu.InstanceBackendFlags { .Metal, .Vulkan, .GL }
 	} else {

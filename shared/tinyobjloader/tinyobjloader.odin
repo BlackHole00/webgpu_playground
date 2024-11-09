@@ -6,7 +6,16 @@ import "core:os"
 import "core:strings"
 import "core:mem"
 
-foreign import tinyobjloader "lib/Darwin_tinyobjloader.a"
+TINYOBJ_LIBRARY_FILE_EXTENSION :: ".lib" when ODIN_OS == .Windows else ".a"
+TINYOBJ_LIBRARY_FILE :: "lib/" + ODIN_OS_STRING + "_" + ODIN_ARCH_STRING + "_tinyobjloader" + TINYOBJ_LIBRARY_FILE_EXTENSION
+
+when !#exists(TINYOBJ_LIBRARY_FILE) {
+	#panic("Could not find the compiled Tiny Obj Loader Native library at '" + #directory + TINYOBJ_LIBRARY_FILE)
+}
+
+foreign import tinyobjloader {
+	TINYOBJ_LIBRARY_FILE,
+}
 
 @(default_calling_convention="c", link_prefix="tinyobj_")
 foreign tinyobjloader {

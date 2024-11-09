@@ -39,7 +39,7 @@ prepare_test_draw :: proc(renderer: ^Renderer) {
 		0,
 		&Object {
 			model = 0,
-			object_matrix = la.matrix4_translate_f32({ 0.0, -4.0, 0.0 }) * la.matrix4_rotate_f32((f32)(time) * 0.3, { 0.0, 1.0, 0.0 }) * la.matrix4_scale_f32({ 4.0, 4.0, 4.0}) * la.identity(matrix[4,4]f32),
+			object_matrix = la.matrix4_translate_f32({ 0.0, -5.0, 0.0 }) * la.matrix4_rotate_f32((f32)(time) * 0.3, { 0.0, 1.0, 0.0 }) * la.matrix4_scale_f32({ 3.5, 3.5, 3.5}) * la.identity(matrix[4,4]f32),
 		},
 		size_of(Object),
 	)
