@@ -36,6 +36,7 @@ Dynamic_Buffer_Type :: enum {
 	// Holds the view and projection matrices for every camera present in the
 	// scenes
 	Cameras,
+	Object_Instances,
 }
 
 Mirrored_Buffer_Type :: enum {
@@ -124,6 +125,10 @@ resources_init_dynamic_buffers :: proc(renderer: ^Renderer) -> bool {
 			usage = { .Storage, .CopySrc, .CopyDst },
 			label = "Cameras Info",
 			size = 256,
+		},
+		.Object_Instances = {
+			usage = { .Storage, .CopySrc, .CopyDst },
+			label = "Object Instances",
 		},
 	}
 

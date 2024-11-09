@@ -8,7 +8,7 @@ fn gfx::current_model() -> Model {
     return bg::draw::call_info.model_id;
 }
 fn gfx::current_object(instance_index: u32) -> Object {
-    return bg::draw::objects[bg::draw::call_info.object_offset + instance_index - 1];
+    return bg::draw::objects[bg::draw::call_info.object_offset + instance_index];
 }
 fn gfx::current_camera() -> Camera {
     return bg::draw::call_info.camera_id;

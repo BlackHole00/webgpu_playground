@@ -387,10 +387,10 @@ resources_recreate_volatile_bindgroups :: proc(renderer: ^Renderer) -> bool {
 				},
 				wgpu.BindGroupEntry {
 					binding = 2,
-					buffer = renderer.resources.mirrored_buffers[.Objects].handle,
+					buffer = renderer.resources.dynamic_buffers[.Object_Instances].handle,
 					offset = 0,
-					size = (u64)(wgputils.mirroredbuffer_cap(
-						renderer.resources.mirrored_buffers[.Objects],
+					size = (u64)(wgputils.dynamicbuffer_cap(
+						renderer.resources.dynamic_buffers[.Object_Instances],
 					)),
 				},
 			}),

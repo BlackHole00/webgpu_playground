@@ -37,19 +37,33 @@ prepare_test_draw :: proc(renderer: ^Renderer) {
 		renderer.core.queue,
 		renderer.resources.mirrored_buffers[.Objects].handle,
 		0,
-		&Object {
-			model = 0,
-			object_matrix = la.matrix4_translate_f32({ 0.0, -5.0, 0.0 }) * la.matrix4_rotate_f32((f32)(time) * 0.3, { 0.0, 1.0, 0.0 }) * la.matrix4_scale_f32({ 3.5, 3.5, 3.5}) * la.identity(matrix[4,4]f32),
-		},
-		size_of(Object),
+		raw_data([]Object {
+			Object {
+				model = 0,
+				object_matrix = la.matrix4_translate_f32({ 0.0, -5.0, 0.0 }) * la.matrix4_rotate_f32((f32)(time) * 0.3, { 0.0, 1.0, 0.0 }) * la.matrix4_scale_f32({ 3.5, 3.5, 3.5}) * la.identity(matrix[4,4]f32),
+			},
+			Object {
+				model = 0,
+				object_matrix = la.matrix4_translate_f32({ 20.0, 0.0, 10.0 }) *
+					la.matrix4_rotate_f32(la.to_radians((f32)(90)), { 0.0, 0.0, 1.0 }) *
+					la.matrix4_rotate_f32((f32)(time) * 5.0, { 0.0, 1.0, 0.0 }) *
+					la.matrix4_scale_f32({ 5.0, 5.0, 5.0}) *
+					la.identity(matrix[4,4]f32),
+			},
+			Object {
+				model = 0,
+				object_matrix = la.matrix4_rotate_f32((f32)(time) * -0.05, { 1.0, 1.0, 1.0 }) * la.matrix4_translate_f32({ -30.0, -100.0, 40.0 }) * la.matrix4_scale_f32({ 50.0, 50.0, 50.0}) * la.identity(matrix[4,4]f32),
+			},
+		}),
+		size_of(Object) * 3,
 	)
-	// wgpu.QueueWriteBuffer(
-	// 	renderer.core.queue,
-	// 	renderer.resources.dynamic_buffers[.Draw_Call_Info].handle,
-	// 	0,
-	// 	&Draw_Call_Info {},
-	// 	size_of(Draw_Call_Info),
-	// )
+	wgpu.QueueWriteBuffer(
+		renderer.core.queue,
+		renderer.resources.dynamic_buffers[.Object_Instances].handle,
+		0,
+		raw_data([]u32 { 0, 1, 2 }),
+		size_of(u32) * 3,
+	)
 	view := la.matrix4_look_at_f32({ 0.0, 0.0, -5.0 }, { 0.0, 0.0, 0.0 }, { 0.0, 1.0, 0.0 })
 	proj := la.matrix4_perspective_f32(la.to_radians((f32)(90)), (f32)(width) / (f32)(height), 0.001, 1000.0)
 	c := Camera {
@@ -112,7 +126,7 @@ begin_frame :: proc(renderer: ^Renderer) {
 	wgpu.RenderPassEncoderSetBindGroup(renderer.frame.render_pass, 0, renderer.resources.bindgroups[.Data])
 	wgpu.RenderPassEncoderSetBindGroup(renderer.frame.render_pass, 1, renderer.resources.bindgroups[.Draw], []u32 { 0 })
 	wgpu.RenderPassEncoderSetBindGroup(renderer.frame.render_pass, 2, renderer.resources.bindgroups[.Utilities])
-	wgpu.RenderPassEncoderDraw(renderer.frame.render_pass, 720, 1, 0, 0)
+	wgpu.RenderPassEncoderDraw(renderer.frame.render_pass, 720, 3, 0, 0)
 }
 
 end_frame :: proc(renderer: ^Renderer) {
