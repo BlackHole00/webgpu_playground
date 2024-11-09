@@ -4,10 +4,12 @@ import "base:runtime"
 import "core:log"
 import "core:os"
 import "core:slice"
+import "core:strings"
 import wgputils "wgpu"
 import "vendor:wgpu"
 import "vendor:stb/image"
 import rp "vendor:stb/rect_pack"
+import "shared:utils"
 
 Texture :: distinct uint
 INVALID_TEXTURE :: max(Texture)
@@ -24,10 +26,13 @@ Texture_Info :: struct {
 
 Texture_Manager :: struct {
 	allocator: runtime.Allocator,
+
 	queue: wgpu.Queue,
 	backing_texture_atlas: ^wgputils.Dynamic_Texture,
 	backing_atlas_info: wgpu.Buffer,
 	backing_info_buffer: ^wgputils.Dynamic_Buffer,
+
+	texture_libraries: [dynamic]string,
 	textures: [dynamic]Texture_Info,
 	last_uploaded_texture_idx: int,
 }
@@ -46,7 +51,9 @@ texturemanager_create :: proc(
 	manager.backing_atlas_info = backing_atlas_info
 	manager.backing_info_buffer = backin_info_buffer
 	manager.queue = queue
+
 	manager.textures = make([dynamic]Texture_Info, allocator)
+	manager.texture_libraries = make([dynamic]string, allocator)
 
 	atlas_size := wgputils.dynamictexture_get_size(manager.backing_texture_atlas^)
 	wgpu.QueueWriteBuffer(
@@ -58,6 +65,8 @@ texturemanager_create :: proc(
 		},
 		size = size_of(Atlas_Info),
 	)
+
+	texturemanager_add_texture_library(manager, ".")
 }
 
 texturemanager_destroy :: proc(manager: Texture_Manager) {
@@ -66,8 +75,23 @@ texturemanager_destroy :: proc(manager: Texture_Manager) {
 			delete(texture.data, manager.allocator)
 		}
 	}
+	for library in manager.texture_libraries {
+		delete(library, manager.allocator)
+	}
 
 	delete(manager.textures)
+	delete(manager.texture_libraries)
+}
+
+texturemanager_add_texture_library :: proc(manager: ^Texture_Manager, path: string) -> bool {
+	fullpath, fullpath_ok := utils.path_as_fullpath(path, manager.allocator)
+	if !fullpath_ok {
+		log.errorf("Could not add the texture library %s: could not get the full path", path)
+		return false
+	}
+
+	append(&manager.texture_libraries, fullpath)
+	return true
 }
 
 texturemanager_is_texture_valid :: proc(manager: Texture_Manager, texture: Texture) -> bool {
@@ -87,9 +111,16 @@ texturemanager_get_texture_info :: proc(manager: Texture_Manager, texture: Textu
 }
 
 texturemanager_register_texture_from_file :: proc(manager: ^Texture_Manager, file: string) -> (Texture, bool) {
-	file_data, data_ok := os.read_entire_file(file, manager.allocator)
+	file_handle, could_find_file := texturemanager_find_file_in_texture_libraries(manager^, file)
+	if !could_find_file {
+		log.errorf("Could not register a new texture: Could not find the file %s in any library", file)
+		return INVALID_TEXTURE, false
+	}
+	defer os.close(file_handle)
+
+	file_data, data_ok := os.read_entire_file(file_handle, manager.allocator)
 	if !data_ok {
-		log.errorf("Could not register a new texture: Could not open the file %s", file)
+		log.errorf("Could not register a new texture: Read the entire file %s", file)
 		return INVALID_TEXTURE, false
 	}
 
@@ -224,6 +255,33 @@ Atlas_Info :: struct {
 Texture_Gpu_Info :: struct {
 	atlas_location: [2]u32,
 	size: [2]u32,
+}
+
+@(private="file")
+texturemanager_find_file_in_texture_libraries :: proc(manager: Texture_Manager, file: string) -> (os.Handle, bool) {
+	for library in manager.texture_libraries {
+		trim_library := strings.trim_right(library, "/\\")
+		trim_file := strings.trim_left(file, "/\\")
+
+		file_fullpath := strings.concatenate([]string{
+			trim_library,
+			"/",
+			trim_file,
+		}, context.temp_allocator)
+
+		if !os.exists(file_fullpath) || !os.is_file(file_fullpath) {
+			continue
+		}
+
+		handle, handle_err := os.open(file_fullpath, os.O_RDONLY)
+		if handle_err != nil {
+			continue
+		}
+
+		return handle, true
+	}
+
+	return os.INVALID_HANDLE, false
 }
 
 @(private="file")

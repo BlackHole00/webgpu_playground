@@ -55,6 +55,8 @@ modelmanager_create :: proc(
 			2 = 3, // normal: [3]f32
 		},
 	})
+	_ = texturemanager_add_texture_library(manager.texture_manager, "res/textures")
+	_ = texturemanager_add_texture_library(manager.texture_manager, "res/models")
 }
 
 modelmanager_destroy :: proc(manager: Model_Manager) {}
@@ -241,14 +243,7 @@ modelmanager_register_model_from_obj :: proc(
 		if material.diffuse_texname != "" {
 			texture, texture_ok := texturemanager_register_texture(
 				manager.texture_manager,
-				// TODO(Vicix): Do not hardcode
-				strings.concatenate(
-					[]string {
-						"res/textures/",
-						strings.clone_from_cstring(material.diffuse_texname, context.temp_allocator),
-					},
-					context.temp_allocator,
-				),
+				strings.clone_from_cstring(material.diffuse_texname, context.temp_allocator),
 			)
 			if !texture_ok {
 				log.errorf(
