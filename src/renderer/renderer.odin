@@ -113,7 +113,7 @@ create :: proc(renderer: ^Renderer, descriptor: Descriptor) -> (err: Error) {
 	texturemanager_create(
 		&renderer.texture_manager,
 		renderer.core.queue,
-		&renderer.resources.dynamic_textures[.Texture_Atlas],
+		&renderer.resources.dynamic_textures[.Texture_Atlas_RGBA8],
 		&renderer.resources.dynamic_buffers[.Texture_Info],
 		renderer.resources.static_buffers[.Atlas_Info],
 	)
@@ -147,7 +147,7 @@ create :: proc(renderer: ^Renderer, descriptor: Descriptor) -> (err: Error) {
 	register_model(renderer, "res/models/LightPole.obj")
 	
 	resize_surface(renderer)
-	
+
 	return nil
 }
 

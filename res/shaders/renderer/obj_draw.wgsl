@@ -38,7 +38,7 @@ fn vertex_main(
 
     // local_uv.y *= -1.0;
     let size = vec2f(f32(texture_info.size.x), f32(texture_info.size.y));
-    let atlas_size = vec2f(f32(bg::data::atlas_info.size.x), f32(bg::data::atlas_info.size.y));
+    let atlas_size = vec2f(f32(bg::data::atlas_info[0].size.x), f32(bg::data::atlas_info[0].size.y));
     let atlas_location = vec2f(f32(texture_info.atlas_location.x), f32(texture_info.atlas_location.y));
     let real_uv = (atlas_location + uv * size) / atlas_size;
 
@@ -51,7 +51,8 @@ fn vertex_main(
 
 @fragment
 fn fragment_main(fragment_in: Fragment_In) -> @location(0) vec4f {
-    let color = textureSample(bg::data::texture_atlas, bg::utils::pixelperfect_sampler, fragment_in.uv).rgb;
-    return textureSample(bg::data::texture_atlas, bg::utils::pixelperfect_sampler, fragment_in.uv);
+    // let color = textureSample(bg::data::texture_atlases[0], bg::utils::pixelperfect_sampler, fragment_in.uv).rgb;
+    // return vec4f(color, 1.0);
+    return textureSample(bg::data::texture_atlases[0], bg::utils::pixelperfect_sampler, fragment_in.uv);
 }
 

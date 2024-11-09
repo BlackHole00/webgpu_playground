@@ -14,6 +14,8 @@ import "shared:utils"
 Texture :: distinct uint
 INVALID_TEXTURE :: max(Texture)
 
+ATLAS_BORDER_SIZE :: 4
+
 Texture_Info :: struct {
 	using _private: struct {
 		data: []byte, // data waiting to be uploaded
@@ -289,12 +291,12 @@ texturemanager_create_rp_rect_list :: proc(manager: Texture_Manager, allocator :
 	list := make([]rp.Rect, len(manager.textures), allocator)
 
 	for texture, i in manager.textures {
-		list[i].w = (rp.Coord)(texture.size.x)
-		list[i].h = (rp.Coord)(texture.size.y)
+		list[i].w = (rp.Coord)(texture.size.x + ATLAS_BORDER_SIZE)
+		list[i].h = (rp.Coord)(texture.size.y + ATLAS_BORDER_SIZE)
 
 		if texture.is_available {
-			list[i].x = (rp.Coord)(texture.atlas_location.?.x)
-			list[i].y = (rp.Coord)(texture.atlas_location.?.y)
+			list[i].x = (rp.Coord)(texture.atlas_location.?.x - ATLAS_BORDER_SIZE)
+			list[i].y = (rp.Coord)(texture.atlas_location.?.y - ATLAS_BORDER_SIZE)
 			list[i].was_packed = true
 		}
 	}
@@ -306,7 +308,7 @@ texturemanager_create_rp_rect_list :: proc(manager: Texture_Manager, allocator :
 texturemanager_apply_rp_rect_list :: proc(manager: Texture_Manager, list: []rp.Rect) {
 	for rect, i in list {
 		if rect.was_packed {
-			manager.textures[i].atlas_location = [2]uint{ (uint)(rect.x), (uint)(rect.y) }
+			manager.textures[i].atlas_location = [2]uint{ (uint)(rect.x + ATLAS_BORDER_SIZE), (uint)(rect.y + ATLAS_BORDER_SIZE) }
 			manager.textures[i].is_available = true
 		} else {
 			manager.textures[i].atlas_location = nil

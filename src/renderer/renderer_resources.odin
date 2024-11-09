@@ -98,6 +98,10 @@ BINDGROUP_LAYOUT_DESCRIPTORS := [Bindgroup_Type]wgpu.BindGroupLayoutDescriptor {
 					viewDimension = ._2D,
 					multisampled = false,
 				},
+				nextInChain = &wgpu.BindGroupLayoutEntryExtras {
+					sType = .BindGroupLayoutEntryExtras,
+					count = TEXTURE_ATLAS_COUNT,
+				},
 			},
 			wgpu.BindGroupLayoutEntry { // Atlas Info
 				binding = 8,
@@ -271,10 +275,18 @@ resources_recreate_volatile_bindgroups :: proc(renderer: ^Renderer) -> bool {
 		wgpu.BindGroupRelease(renderer.resources.bindgroups[.Draw])
 	}
 
-	texture_atlas_view := wgputils.dynamictexture_as_view(
-		renderer.resources.dynamic_textures[.Texture_Atlas],
+	texture_atlas_rgba8_view := wgputils.dynamictexture_as_view(
+		renderer.resources.dynamic_textures[.Texture_Atlas_RGBA8],
 	)
-	defer wgpu.TextureViewRelease(texture_atlas_view)
+	defer wgpu.TextureViewRelease(texture_atlas_rgba8_view)
+	texture_atlas_rg8_view := wgputils.dynamictexture_as_view(
+		renderer.resources.dynamic_textures[.Texture_Atlas_RG8],
+	)
+	defer wgpu.TextureViewRelease(texture_atlas_rg8_view)
+	texture_atlas_r8_view := wgputils.dynamictexture_as_view(
+		renderer.resources.dynamic_textures[.Texture_Atlas_R8],
+	)
+	defer wgpu.TextureViewRelease(texture_atlas_r8_view)
 
 	renderer.resources.bindgroups[.Data] = wgpu.DeviceCreateBindGroup(
 		renderer.core.device,
@@ -335,7 +347,15 @@ resources_recreate_volatile_bindgroups :: proc(renderer: ^Renderer) -> bool {
 				},
 				wgpu.BindGroupEntry {
 					binding = 7,
-					textureView = texture_atlas_view,
+					nextInChain = &wgpu.BindGroupEntryExtras {
+						sType = .BindGroupEntryExtras,
+						textureViewCount = TEXTURE_ATLAS_COUNT,
+						textureViews = raw_data([]wgpu.TextureView {
+							texture_atlas_rgba8_view,
+							texture_atlas_rg8_view,
+							texture_atlas_r8_view,
+						}),
+					},
 				},
 				wgpu.BindGroupEntry {
 					binding = 8,

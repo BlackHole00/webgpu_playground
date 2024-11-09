@@ -8,9 +8,13 @@ import wgputils "wgpu"
 Static_Texture_Type :: enum {
 }
 
+TEXTURE_ATLAS_COUNT :: 3
+
 Dynamic_Texture_Type :: enum {
 	Surface_Depth_Buffer,
-	Texture_Atlas,
+	Texture_Atlas_R8,
+	Texture_Atlas_RG8,
+	Texture_Atlas_RGBA8,
 }
 
 resources_init_textures :: proc(renderer: ^Renderer) -> (ok: bool) {
@@ -77,7 +81,33 @@ resources_init_dynamic_textures :: proc(renderer: ^Renderer) -> bool {
 			}),
 			label = "Surface Depth Buffer",
 		},
-		.Texture_Atlas = wgpu.TextureDescriptor {
+		.Texture_Atlas_R8 = wgpu.TextureDescriptor {
+			usage = { .TextureBinding, .CopySrc, .CopyDst },
+			dimension = ._2D,
+			size = { 2048, 2048, 1 },
+			format = .R8Unorm,
+			mipLevelCount = 1,
+			sampleCount = 1,
+			viewFormatCount = 1,
+			viewFormats = raw_data([]wgpu.TextureFormat {
+				.R8Unorm,
+			}),
+			label = "Texture Atlas - R8",
+		},
+		.Texture_Atlas_RG8 = wgpu.TextureDescriptor {
+			usage = { .TextureBinding, .CopySrc, .CopyDst },
+			dimension = ._2D,
+			size = { 2048, 2048, 1 },
+			format = .RG8Unorm,
+			mipLevelCount = 1,
+			sampleCount = 1,
+			viewFormatCount = 1,
+			viewFormats = raw_data([]wgpu.TextureFormat {
+				.RG8Unorm,
+			}),
+			label = "Texture Atlas - RG8",
+		},
+		.Texture_Atlas_RGBA8 = wgpu.TextureDescriptor {
 			usage = { .TextureBinding, .CopySrc, .CopyDst },
 			dimension = ._2D,
 			size = { 2048, 2048, 1 },
@@ -88,7 +118,7 @@ resources_init_dynamic_textures :: proc(renderer: ^Renderer) -> bool {
 			viewFormats = raw_data([]wgpu.TextureFormat {
 				.RGBA8Unorm,
 			}),
-			label = "Texture Atlas",
+			label = "Texture Atlas - RGBA8",
 		},
 	}
 
