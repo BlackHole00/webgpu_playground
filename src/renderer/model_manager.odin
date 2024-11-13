@@ -241,11 +241,11 @@ modelmanager_register_model_from_obj :: proc(
 		}
 
 		if material.diffuse_texname != "" {
-			texture, texture_ok := texturemanager_register_texture(
+			texture, texture_res := texturemanager_register_texture(
 				manager.texture_manager,
 				strings.clone_from_cstring(material.diffuse_texname, context.temp_allocator),
 			)
-			if !texture_ok {
+			if texture_res != nil {
 				log.errorf(
 					"Could not register the model %s: Could not load the texture %s",
 					obj_path,

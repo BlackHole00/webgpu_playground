@@ -82,8 +82,8 @@ add_include_path :: proc(preprocessor: ^Shader_Preprocessor, path: string) -> Er
 		return .Path_Error
 	}
 
-	fullpath, fullpath_ok := utils.path_as_fullpath(path, preprocessor.allocator)
-	if !fullpath_ok {
+	fullpath, fullpath_res := utils.path_as_fullpath(path, preprocessor.allocator)
+	if fullpath_res != nil {
 		log.errorf(
 			"Could not add the path `%s` to the preprocessor's include paths: Could not obtain the fullpath of the" +
 			"provided path",
@@ -126,8 +126,8 @@ preprocess :: proc(
 	arena_temp := vmem.arena_temp_begin(&preprocessor.arena)
 	defer vmem.arena_temp_end(arena_temp)
 
-	fullpath, fullpath_ok := utils.path_as_fullpath(file, shaderpreprocessor_temp_allocator(preprocessor))
-	if !fullpath_ok {
+	fullpath, fullpath_res := utils.path_as_fullpath(file, shaderpreprocessor_temp_allocator(preprocessor))
+	if fullpath_res != nil {
 		log.errorf("Could not preprocess file `%s`: Could not obtain its fullpath", file)
 		return "", .Os_Error
 	}

@@ -121,6 +121,7 @@ struct Model_Info {
 struct Texture_Info {
     atlas_location: vec2u,
     size: vec2u,
+    atlas_index: u32,
 }
 
 //  Object_Info` holds information, relative to a `Object`, about a specific

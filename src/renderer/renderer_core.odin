@@ -137,6 +137,7 @@ core_adapter_init :: proc(renderer: ^Renderer) -> bool {
 core_check_adapter_capabilities :: proc(renderer: ^Renderer) -> bool {
 	return slice.contains(renderer.core.adapter_features, wgpu.FeatureName.MultiDrawIndirect) &&
 		slice.contains(renderer.core.adapter_features, wgpu.FeatureName.TextureBindingArray) &&
+		slice.contains(renderer.core.adapter_features, wgpu.FeatureName.SampledTextureAndStorageBufferArrayNonUniformIndexing) &&
 		renderer.core.adapter_limits.limits.maxBindGroups >= 1
 }
 
@@ -144,8 +145,8 @@ core_device_init :: proc(renderer: ^Renderer) -> bool {
 	request_data := Device_Request_Data { renderer, false }
 	
 	device_descriptor := wgpu.DeviceDescriptor {
-		requiredFeatureCount = 2,
-		requiredFeatures = raw_data([]wgpu.FeatureName { .MultiDrawIndirect, .TextureBindingArray }),
+		requiredFeatureCount = 3,
+		requiredFeatures = raw_data([]wgpu.FeatureName { .MultiDrawIndirect, .TextureBindingArray, .SampledTextureAndStorageBufferArrayNonUniformIndexing }),
 		deviceLostCallback = wgpu_device_lost_callback,
 	}
 	log.debugf("Creating a device with the following descriptor: %#v", device_descriptor)

@@ -6,7 +6,7 @@ if [ ! -f build/shader_validator ]; then
 	fi
 fi
 
-build/shader_validator res/shaders/renderer/obj_draw.wgsl -allow-namespaces -include-path:res/shaders
+build/shader_validator res/shaders/renderer/obj_draw.wgsl -allow-namespaces -include-path:res/shaders -feature:SampledTextureAndStorageBufferArrayNonUniformIndexing
 if [[ $? -ne 0 ]]; then
 	exit 1
 fi

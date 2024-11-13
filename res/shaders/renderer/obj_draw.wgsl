@@ -3,12 +3,14 @@
 struct Vertex_Out {
     @builtin(position) position: vec4f,
     @location(0) uv: vec2f,
-    @location(1) normal: vec3f,
+    @location(1) atlas_index: u32,
+    @location(2) normal: vec3f,
 }
 
 struct Fragment_In {
     @location(0) uv: vec2f,
-    @location(1) normal: vec3f,
+    @location(1) atlas_index: u32,
+    @location(2) normal: vec3f,
 }
 
 @vertex
@@ -44,15 +46,18 @@ fn vertex_main(
 
     return Vertex_Out(
         math::OPENGL_TO_WGPU_MATRIX * projection_matrix * view_matrix * object_matrix * vec4f(position, 1.0f),
-        real_uv,
+        real_uv.xy,
+        texture_info.atlas_index,
         normal,
     );
 }
 
 @fragment
 fn fragment_main(fragment_in: Fragment_In) -> @location(0) vec4f {
-    // let color = textureSample(bg::data::texture_atlases[0], bg::utils::pixelperfect_sampler, fragment_in.uv).rgb;
-    // return vec4f(color, 1.0);
-    return textureSample(bg::data::texture_atlases[0], bg::utils::pixelperfect_sampler, fragment_in.uv);
+    return textureSample(
+        bg::data::texture_atlases[fragment_in.atlas_index],
+        bg::utils::pixelperfect_sampler,
+        fragment_in.uv,
+    );
 }
 

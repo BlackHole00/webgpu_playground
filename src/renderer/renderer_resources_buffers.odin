@@ -84,7 +84,7 @@ resources_init_static_buffers :: proc(renderer: ^Renderer) -> bool {
 		},
 		.Atlas_Info = {
 			usage = { .Storage, .CopyDst },
-			size = size_of(Atlas_Info),
+			size = size_of(Atlas_Gpu_Info) * len(Atlas_Type),
 			label = "Layout Info",
 		},
 	}

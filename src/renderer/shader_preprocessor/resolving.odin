@@ -59,8 +59,8 @@ shaderpreprocessor_resolve_macro :: proc(
 			return "", .Include_Not_Found
 		}
 
-		fullpath, fullpath_ok := utils.path_as_fullpath(filepath, shaderpreprocessor_temp_allocator(preprocessor))
-		if !fullpath_ok {
+		fullpath, fullpath_result := utils.path_as_fullpath(filepath, shaderpreprocessor_temp_allocator(preprocessor))
+		if fullpath_result != nil {
 			log.errorf(
 				"Could not preprocess file %s: Could not find the fullpath of file %s",
 				macro.file_path,

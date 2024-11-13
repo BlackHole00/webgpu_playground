@@ -112,10 +112,16 @@ create :: proc(renderer: ^Renderer, descriptor: Descriptor) -> (err: Error) {
 
 	texturemanager_create(
 		&renderer.texture_manager,
-		renderer.core.queue,
-		&renderer.resources.dynamic_textures[.Texture_Atlas_RGBA8],
-		&renderer.resources.dynamic_buffers[.Texture_Info],
-		renderer.resources.static_buffers[.Atlas_Info],
+		Texture_Manager_Descriptor {
+			queue = renderer.core.queue,
+			backing_texture_info_buffer = &renderer.resources.dynamic_buffers[.Texture_Info],
+			backing_atlases_info_buffer = renderer.resources.static_buffers[.Atlas_Info],
+			backing_textures = {
+				.R8 = &renderer.resources.dynamic_textures[.Texture_Atlas_R8],
+				.RG8 = &renderer.resources.dynamic_textures[.Texture_Atlas_RG8],
+				.RGBA8 = &renderer.resources.dynamic_textures[.Texture_Atlas_RGBA8],
+			},
+		},
 	)
 
 	modelmanager_create(
@@ -156,7 +162,7 @@ destroy :: proc(renderer: ^Renderer) {
 
 	renderpipelinemanager_destroy(renderer.render_pipeline_manager)
 
-	texturemanager_destroy(renderer.texture_manager)
+	texturemanager_destroy(&renderer.texture_manager)
 	modelmanager_destroy(renderer.model_manager)
 
 	resources_deinit(renderer)

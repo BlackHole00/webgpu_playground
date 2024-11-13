@@ -13,9 +13,9 @@ register_memory_layout :: proc(renderer: ^Renderer, descriptor: Memory_Layout_De
 	return layout, true
 }
 register_texture :: proc(renderer: ^Renderer, texture_file: string) -> (Texture, bool) {
-	texture, texture_ok := texturemanager_register_texture(&renderer.texture_manager, texture_file)
-	if !texture_ok {
-		log.warnf("Could not load texture %s", texture_file)
+	texture, texture_result := texturemanager_register_texture(&renderer.texture_manager, texture_file)
+	if texture_result != nil {
+		log.warnf("Could not load texture %s. Got error %v", texture_file, texture_result)
 		return INVALID_TEXTURE, false
 	}
 
@@ -45,5 +45,5 @@ create_immediate_object :: proc(scene: uint, model: uint, position, rotation: [3
 
 // INTERNAL
 draw_scene :: proc(camera: rawptr, pass: uint, scene: uint) {}
-resize :: proc() {}
+// resize :: proc() {}
 
