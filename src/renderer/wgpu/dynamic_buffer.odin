@@ -23,6 +23,7 @@ dynamicbuffer_create :: proc(
 	queue: wgpu.Queue,
 	descriptor: wgpu.BufferDescriptor,
 	allocator := context.allocator,
+	location := #caller_location,
 ) -> bool {
 	descriptor := descriptor
 
@@ -32,6 +33,7 @@ dynamicbuffer_create :: proc(
 			"{{ .CopySrc, .CopyDst }}. Found usages %v instead",
 			descriptor.label,
 			descriptor.usage,
+			location = location,
 		)
 		return false
 	}
@@ -72,8 +74,8 @@ dynamicbuffer_cap :: proc(buffer: Dynamic_Buffer) -> uint {
 	return buffer.capacity
 }
 
-dynamicbuffer_resize :: proc(buffer: ^Dynamic_Buffer, length: uint) -> bool {
-	if !dynamicbuffer_ensure_capacity(buffer, length) {
+dynamicbuffer_resize :: proc(buffer: ^Dynamic_Buffer, length: uint, location := #caller_location) -> bool {
+	if !dynamicbuffer_ensure_capacity(buffer, length, location) {
 		return false
 	}
 
@@ -81,13 +83,13 @@ dynamicbuffer_resize :: proc(buffer: ^Dynamic_Buffer, length: uint) -> bool {
 	return true
 }
 
-dynamicbuffer_append_slice :: proc(buffer: ^Dynamic_Buffer, data: []$T) -> bool {
-	return dynamicbuffer_append_bytes(buffer, slice.to_bytes(data))
+dynamicbuffer_append_slice :: proc(buffer: ^Dynamic_Buffer, data: []$T, location := #caller_location) -> bool {
+	return dynamicbuffer_append_bytes(buffer, slice.to_bytes(data), location)
 }
 
-dynamicbuffer_append_bytes :: proc(buffer: ^Dynamic_Buffer, data: []byte) -> bool {
+dynamicbuffer_append_bytes :: proc(buffer: ^Dynamic_Buffer, data: []byte, location := #caller_location) -> bool {
 	old_length := buffer.length
-	if !dynamicbuffer_resize(buffer, buffer.length + len(data)) {
+	if !dynamicbuffer_resize(buffer, buffer.length + len(data), location) {
 		return false
 	}
 
@@ -96,8 +98,8 @@ dynamicbuffer_append_bytes :: proc(buffer: ^Dynamic_Buffer, data: []byte) -> boo
 	return true
 }
 
-dynamicbuffer_append_value :: proc(buffer: ^Dynamic_Buffer, value: ^$T) -> bool {
-	return dynamicbuffer_append_slice(buffer, slice.from_ptr(value, 1))
+dynamicbuffer_append_value :: proc(buffer: ^Dynamic_Buffer, value: ^$T, location := #caller_location) -> bool {
+	return dynamicbuffer_append_slice(buffer, slice.from_ptr(value, 1), location)
 }
 
 dynamicbuffer_append_buffer :: proc(
@@ -105,9 +107,10 @@ dynamicbuffer_append_buffer :: proc(
 	source: wgpu.Buffer,
 	offset: uint,
 	length: uint,
+	location := #caller_location,
 ) -> bool {
 	old_length := buffer.length
-	if !dynamicbuffer_resize(buffer, buffer.length + length) {
+	if !dynamicbuffer_resize(buffer, buffer.length + length, location) {
 		return false
 	}
 
@@ -145,7 +148,7 @@ dynamicbuffer_append :: proc {
 	dynamicbuffer_append_buffer,
 }
 
-dynamicbuffer_reserve :: proc(buffer: ^Dynamic_Buffer, capacity: uint) -> bool {
+dynamicbuffer_reserve :: proc(buffer: ^Dynamic_Buffer, capacity: uint, location := #caller_location) -> bool {
 	usages := wgpu.BufferGetUsage(buffer.handle)
 	new_buffer := wgpu.DeviceCreateBuffer(buffer.device, &wgpu.BufferDescriptor {
 		label = buffer.label,
@@ -153,7 +156,7 @@ dynamicbuffer_reserve :: proc(buffer: ^Dynamic_Buffer, capacity: uint) -> bool {
 		size = (u64)(capacity),
 	})
 	if new_buffer == nil {
-		log.warnf("A Dynamic Buffer %s failed to resize", buffer.label)
+		log.warnf("A Dynamic Buffer %s failed to resize", buffer.label, location = location)
 		return false
 	}
 
@@ -189,13 +192,52 @@ dynamicbuffer_reserve :: proc(buffer: ^Dynamic_Buffer, capacity: uint) -> bool {
 	return true
 }
 
+dynamicbuffer_queue_write :: proc(
+	buffer: ^Dynamic_Buffer,
+	offset: u64,
+	data: rawptr,
+	size: uint,
+	allow_resizing := false,
+	location := #caller_location,
+) -> bool {
+	if offset + (u64)(size) >= (u64)(buffer.length) {
+		if !allow_resizing {
+			log.errorf(
+				"The required buffer write (%d offset, %d size) would end up overflowing the buffer (of length %d). " +
+				"The user did not allow for resizes, so the write will be ignored",
+				offset,
+				size,
+				buffer.length,
+				location = location,
+			)
+
+			return false
+		}
+
+		if !dynamicbuffer_resize(buffer, (uint)(offset) + size, location) {
+			return false
+		}
+	}
+
+	wgpu.QueueWriteBuffer(
+		buffer.queue,
+		buffer.handle,
+		offset,
+		data,
+		size,
+	)
+
+	return true
+}
+
 @(private="file")
 dynamicbuffer_ensure_capacity :: proc(
 	buffer: ^Dynamic_Buffer,
 	capacity: uint,
+	location := #caller_location,
 ) -> bool {
 	if buffer.capacity < capacity {
-		return dynamicbuffer_reserve(buffer, (uint)(math.next_power_of_two((int)(capacity))))
+		return dynamicbuffer_reserve(buffer, (uint)(math.next_power_of_two((int)(capacity))), location)
 	}
 
 	return true

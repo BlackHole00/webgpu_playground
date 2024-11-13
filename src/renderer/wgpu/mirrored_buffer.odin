@@ -1,6 +1,7 @@
 package renderer_wgpu
 
 import "base:runtime"
+import "core:mem"
 import "core:slice"
 import "core:log"
 import "vendor:wgpu"
@@ -103,6 +104,43 @@ mirroredbuffer_append :: proc {
 	mirroredbuffer_append_value,
 	mirroredbuffer_append_slice,
 	mirroredbuffer_append_bytes,
+}
+
+mirroredbuffer_queue_write :: proc(
+	buffer: ^Mirrored_Buffer,
+	offset: u64,
+	data: rawptr,
+	size: uint,
+	allow_resizing := false,
+) -> bool {
+	if offset + (u64)(size) >= (u64)(buffer.length) {
+		if !allow_resizing {
+			log.errorf(
+				"The required buffer write (%d offset, %d size) would end up overflowing the buffer (of length %d). " +
+				"The user did not allow for resizes, so the write will be ignored",
+				offset,
+				size,
+				buffer.length,
+			)
+
+			return false
+		}
+
+		if !mirroredbuffer_resize(buffer, (uint)(offset) + size) {
+			return false
+		}
+	}
+
+	mem.copy(&buffer.cpu_buffer[offset], data, (int)(size))
+	wgpu.QueueWriteBuffer(
+		buffer.queue,
+		buffer.handle,
+		offset,
+		data,
+		size,
+	)
+
+	return true
 }
 
 mirroredbuffer_forcesync_gpu_with_cpu :: proc(buffer: Mirrored_Buffer) {
