@@ -1,6 +1,7 @@
 package main
 
 import "base:runtime"
+import "core:reflect"
 import "core:log"
 import "core:os"
 import "core:strings"
@@ -12,6 +13,7 @@ Command_Line_Options :: struct {
 	files: [dynamic]string `args:"pos=0,required=1" usage:"Shader input file(s)"`,
 	include_path: [dynamic]string `usage:"Specifies the include path(s)"`,
 	allow_namespaces: bool `usage:"Allows namespace usage when preprocessing"`,
+	feature: [dynamic]string `usage="Specifies a wgpu feature"`,
 	verbose: bool `usage:"Print more messages"`,
 }
 
@@ -127,8 +129,18 @@ adapter_init :: proc() {
 }
 
 device_init :: proc() {
+	features := make([]wgpu.FeatureName, len(g_command_line_options.feature), context.temp_allocator)
+	for feature, i in g_command_line_options.feature {
+		feature_enum, enum_ok := reflect.enum_from_name(wgpu.FeatureName, feature)
+		log.assertf(enum_ok, "The required feature %s does not exist", feature)
+
+		features[i] = feature_enum
+	}
+
 	device_descriptor := wgpu.DeviceDescriptor {
 		deviceLostCallback = wgpu_device_lost_callback,
+		requiredFeatureCount = len(features),
+		requiredFeatures = raw_data(features),
 	}
 	log.debugf("Creating a device with the following descriptor: %#v", device_descriptor)
 	
