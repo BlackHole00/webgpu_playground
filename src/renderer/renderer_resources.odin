@@ -206,16 +206,24 @@ resources_deinit :: proc(renderer: ^Renderer) {
 	resources_deinit_textures(renderer^)
 
 	for pipeline in renderer.resources.pipelines {
-		if pipeline != nil do wgpu.RenderPipelineRelease(pipeline)
+		if pipeline != nil {
+			wgpu.RenderPipelineRelease(pipeline)
+		}
 	}
 	for bindgroup in renderer.resources.bindgroups {
-		if bindgroup != nil do wgpu.BindGroupRelease(bindgroup)
+		if bindgroup != nil {
+			wgpu.BindGroupRelease(bindgroup)
+		}
 	}
 	for sampler in renderer.resources.samplers {
-		if sampler != nil do wgpu.SamplerRelease(sampler)
+		if sampler != nil {
+			wgpu.SamplerRelease(sampler)
+		}
 	}
 	for bindgroup_layout in renderer.resources.bindgroup_layouts {
-		if bindgroup_layout != nil do wgpu.BindGroupLayoutRelease(bindgroup_layout)
+		if bindgroup_layout != nil {
+			wgpu.BindGroupLayoutRelease(bindgroup_layout)
+		}
 	}
 }
 

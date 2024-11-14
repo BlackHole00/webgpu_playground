@@ -18,7 +18,9 @@ core_init :: proc(renderer: ^Renderer) -> (err: Error) {
 		)
 		return Common_Error.Invalid_Glfw_Window
 	}
-	defer if err != nil do core_deinit(renderer^)
+	defer if err != nil {
+		core_deinit(renderer^)	
+	}
 	
 	if !core_instance_init(renderer) {
 		log.errorf("Could not create a wgpu instance")
@@ -50,15 +52,23 @@ core_init :: proc(renderer: ^Renderer) -> (err: Error) {
 }
 
 core_deinit :: proc(renderer: Renderer) {
-	if renderer.core.queue != nil do wgpu.QueueRelease(renderer.core.queue)
-	if renderer.core.device != nil do wgpu.DeviceRelease(renderer.core.device)
+	if renderer.core.queue != nil {
+		wgpu.QueueRelease(renderer.core.queue)
+	}
+	if renderer.core.device != nil {
+		wgpu.DeviceRelease(renderer.core.device)
+	}
 	if renderer.core.adapter != nil {
 		wgpu.SurfaceCapabilitiesFreeMembers(renderer.core.surface_capabilities)
 		wgpu.AdapterInfoFreeMembers(renderer.core.adapter_info)
 		wgpu.AdapterRelease(renderer.core.adapter)
 	}
-	if renderer.core.surface != nil do wgpu.SurfaceRelease(renderer.core.surface)
-	if renderer.core.instance != nil do wgpu.InstanceRelease(renderer.core.instance)
+	if renderer.core.surface != nil {
+		wgpu.SurfaceRelease(renderer.core.surface)
+	}
+	if renderer.core.instance != nil {
+		wgpu.InstanceRelease(renderer.core.instance)
+	}
 }
 
 core_check_glfw_window :: proc(window: glfw.WindowHandle) -> bool {
