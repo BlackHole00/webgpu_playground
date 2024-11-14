@@ -158,13 +158,10 @@ atlasmanager_apply :: proc(
 	}
 	
 	applied_textures = make([]Texture_Apply_Info, len(manager.written_rects) - rects_written, allocator)
-	for i in rects_written..<len(manager.written_rects) {
-		queue_idx := i - rects_written
+	for written_rect, i in manager.written_rects[rects_written:] {
+		assert(written_rect.was_packed == true)
 
-		written_rect_info  := &manager.written_rects[i]
-		write_info         := &manager.queued_writes[queue_idx]
-
-		assert(written_rect_info.was_packed == true)
+		write_info := &manager.queued_writes[i]
 
 		wgpu.QueueWriteTexture(
 			manager.queue,
@@ -172,8 +169,8 @@ atlasmanager_apply :: proc(
 				mipLevel = 0,
 				texture = manager.backing_texture.handle,
 				origin = { 
-					(u32)(written_rect_info.x) + (u32)(manager.texture_border_size),
-					(u32)(written_rect_info.y) + (u32)(manager.texture_border_size),
+					(u32)(written_rect.x) + (u32)(manager.texture_border_size),
+					(u32)(written_rect.y) + (u32)(manager.texture_border_size),
 					0,
 				},
 				aspect = .All,
@@ -196,8 +193,8 @@ atlasmanager_apply :: proc(
 			size = write_info.size,
 			texture_id = write_info.texture_id,
 			position = {
-				(uint)(written_rect_info.x) + manager.texture_border_size,
-				(uint)(written_rect_info.y) + manager.texture_border_size,
+				(uint)(written_rect.x) + manager.texture_border_size,
+				(uint)(written_rect.y) + manager.texture_border_size,
 			},
 		}
 	}
