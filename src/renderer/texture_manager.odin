@@ -264,7 +264,7 @@ texturemanager_register_texture_from_bytes :: proc(
 	manager.textures[texture_index].atlas_type = target
 
 	owned_data := slice.clone(data, context.temp_allocator) or_return
-	atlasmanager_queue_add_texture(&manager.atlas_managers[target], Write_Data {
+	atlasmanager_queue_add_texture(&manager.atlas_managers[target], Atlas_Texture_Write_Request {
 		texture_data = owned_data,
 		texture_id = (Texture)(texture_index),
 		size = size,

@@ -16,7 +16,7 @@ Atlas_Manager_Result :: union #shared_nil {
 	runtime.Allocator_Error,
 }
 
-Write_Data :: struct {
+Atlas_Texture_Write_Request :: struct {
 	// Expected to be allocated with a temp allocator
 	texture_data: []byte,
 	// It is not used by the atlas, it is used by the used to know where a 
@@ -49,7 +49,7 @@ Atlas_Manager :: struct {
 	texture_pixel_size: uint,
 	texture_border_size: uint,
 
-	queued_writes: [dynamic]Write_Data,
+	queued_writes: [dynamic]Atlas_Texture_Write_Request,
 	written_rects: [dynamic]rp.Rect,
 }
 
@@ -83,7 +83,7 @@ atlasmanager_create :: proc(
 	manager.texture_border_size = descriptor.texture_border_size
 	manager.texture_pixel_size  = descriptor.texture_pixel_size
 
-	manager.queued_writes = make([dynamic]Write_Data, allocator) or_return
+	manager.queued_writes = make([dynamic]Atlas_Texture_Write_Request, allocator) or_return
 	manager.written_rects = make([dynamic]rp.Rect, allocator) or_return
 
 	atlasmanager_refresh_info_buffer(manager^)
@@ -98,7 +98,7 @@ atlasmanager_destroy :: proc(manager: ^Atlas_Manager) {
 }
 
 // Expects that atlasmanager_apply is called before the temp allocated is "flushed"
-atlasmanager_queue_add_texture :: proc(manager: ^Atlas_Manager, texture: Write_Data) -> Atlas_Manager_Result {
+atlasmanager_queue_add_texture :: proc(manager: ^Atlas_Manager, texture: Atlas_Texture_Write_Request) -> Atlas_Manager_Result {
 	append(&manager.queued_writes, texture) or_return
 	return nil
 }
