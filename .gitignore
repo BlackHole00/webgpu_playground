@@ -1,4 +1,6 @@
-build/**
+build/app
+build/app.exe
+build/.odin-cache
 .DS_Store
 *.a
 *.lib
