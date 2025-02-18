@@ -1,0 +1,3 @@
+[submodule "shared/wgpu"]
+	path = shared/wgpu
+	url = https://github.com/Capati/wgpu-odin
