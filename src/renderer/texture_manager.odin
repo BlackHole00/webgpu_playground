@@ -1,6 +1,6 @@
 package renderer
 
-import wgpu "shared:wgpu/wrapper"
+import "shared:wgpu"
 
 Texture_Manager :: struct {
 	textures: [Texture_Manager_Texture_Type]wgpu.Texture,

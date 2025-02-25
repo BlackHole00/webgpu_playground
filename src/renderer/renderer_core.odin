@@ -4,7 +4,7 @@ import "base:runtime"
 import "core:log"
 import vmem "core:mem/virtual"
 import "vendor:glfw"
-import wgpu "shared:wgpu/wrapper"
+import "shared:wgpu"
 import wgpuglfw "shared:wgpu/utils/glfw"
 
 Renderer_Core_Descriptor :: struct {
@@ -28,9 +28,9 @@ Renderer_Core :: struct {
 	queue: wgpu.Queue,
 
 	adapter_info: wgpu.Adapter_Info,
-	adapter_features: wgpu.Adapter_Features,
+	adapter_features: wgpu.Features,
 	adapter_limits: wgpu.Limits,
-	device_features: wgpu.Device_Features,
+	device_features: wgpu.Features,
 	device_limits: wgpu.Limits,
 	
 	window_handle: glfw.WindowHandle,
@@ -115,7 +115,9 @@ renderercore_configure_surface :: proc(core: ^Renderer_Core, size: Maybe([2]u32)
 	}
 
 	configuration.format = .Bgra8_Unorm
-	if !wgpu.surface_configure(core.surface, core.device, configuration) {
+	configuration.device = core.device
+	configuration.usage = { .Render_Attachment }
+	if !wgpu.surface_configure(core.surface, configuration) {
 		return .Could_Not_Configure_Surface
 	}
 
@@ -202,8 +204,6 @@ renderercore_initialize_surface :: proc(
 	}
 	core.surface = surface
 
-	_ = glfw.GetCocoaWindow(descriptor.window_handle)
-
 	return nil
 }
 
@@ -233,15 +233,13 @@ renderercore_initialize_adapter :: proc(
 	}
 	core.adapter_info = adapter_info
 
-	core.adapter_features = wgpu.adapter_get_features(core.adapter)
-
-	adapter_limits, adapter_limits_ok := wgpu.adapter_get_limits(core.adapter)
+	adapter_limits, adapter_limits_ok := wgpu.adapter_limits(core.adapter)
 	if !adapter_limits_ok {
 		return .Could_Not_Query_Adapter_Info
 	}
 	core.adapter_limits = adapter_limits
 
-	core.adapter_features = wgpu.adapter_get_features(core.adapter)
+	core.adapter_features = wgpu.adapter_features(core.adapter)
 
 	log.infof("Using adapter %#v", core.adapter_info)
 	log.debugf("The adapter supports the following features: %#v", core.adapter_features)
@@ -249,7 +247,7 @@ renderercore_initialize_adapter :: proc(
 
 	for required_feature in descriptor.features {
 		if required_feature not_in core.adapter_features {
-			return .Required_Adapter_Feature_Not_Present
+			// return .Required_Adapter_Feature_Not_Present
 		}
 	}
 
@@ -269,6 +267,7 @@ renderercore_initialize_device :: proc(
 	device_descriptor.label = "Renderer Device"
 	device_descriptor.required_features = descriptor.features
 	// TODO: device_descriptor.device_lost_callback = 
+	// TODO: device_descriptor.uncaptured_error_callback_info =
 	if descriptor.trace {
 		// TODO: device_descriptor.trace_path =
 	}
@@ -287,8 +286,8 @@ renderercore_initialize_device :: proc(
 	}
 	core.device = device
 
-	core.device_features = wgpu.device_get_features(core.device)
-	device_limits, device_limits_ok := wgpu.device_get_limits(core.device)
+	core.device_features = wgpu.device_features(core.device)
+	device_limits, device_limits_ok := wgpu.device_limits(core.device)
 	if !device_limits_ok {
 		return .Could_Not_Query_Device_Info
 	}
@@ -300,23 +299,25 @@ renderercore_initialize_device :: proc(
 }
 
 @(private = "file")
-wgpu_log_callback: wgpu.Log_Callback : proc "c" (level: wgpu.Log_Level, message: cstring, user_data: rawptr) {
+wgpu_log_callback: wgpu.Log_Callback : proc "c" (level: wgpu.Log_Level, message: wgpu.String_View, user_data: rawptr) {
 	logger := cast(^runtime.Logger)user_data
 
 	context = runtime.default_context()
 	context.logger = logger^
 
+	message_odin := wgpu.string_view_get_string(message)
+
 	#partial switch level {
 	case .Error:
-		log.errorf("[WGPU] %s", message)
+		log.errorf("[WGPU] %s", message_odin)
 	case .Warn:
-		log.warnf("[WGPU] %s", message)
+		log.warnf("[WGPU] %s", message_odin)
 	case .Info:
-		log.infof("[WGPU] %s", message)
+		log.infof("[WGPU] %s", message_odin)
 	case .Debug:
-		log.debugf("[WGPU] %s", message)
+		log.debugf("[WGPU] %s", message_odin)
 	case .Trace:
-		log.debugf("[WGPU - TRACE] %s", message)
+		log.debugf("[WGPU - TRACE] %s", message_odin)
 	}
 }
 

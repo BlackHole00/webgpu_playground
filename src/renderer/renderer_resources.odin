@@ -1,6 +1,6 @@
 package renderer
 
-import wgpu "shared:wgpu/wrapper"
+import "shared:wgpu"
 
 Renderer_Resources :: struct {
 	vertex_buffer: wgpu.Buffer,

@@ -5,7 +5,7 @@ import "core:log"
 import os "core:os/os2"
 import "vendor:glfw"
 import "vendor:stb/image"
-import wgpu "shared:wgpu/wrapper"
+import "shared:wgpu"
 import "project:renderer"
 
 main :: proc() {
@@ -21,14 +21,14 @@ main :: proc() {
 	defer glfw.DestroyWindow(window)
 
 	core: renderer.Renderer_Core
-	renderer.renderercore_create(&core, renderer.Renderer_Core_Descriptor {
-		debug = false,
+	assert(renderer.renderercore_create(&core, renderer.Renderer_Core_Descriptor {
+		debug = true,
 		validation = true,
-		trace = false,
+		trace = true,
 		features = { .Multi_Draw_Indirect },
 		logger = context.logger,
 		window_handle = window,
-	})
+	}) == nil)
 	defer renderer.renderercore_destroy(&core)
 
 	renderer.renderercore_configure_surface(&core)
@@ -81,7 +81,8 @@ main :: proc() {
 		defer wgpu.texture_view_release(view)
 
 		surface_texture, _ := wgpu.surface_get_current_texture(core.surface)
-		if surface_texture.status != .Success {
+		defer wgpu.surface_texture_release(surface_texture)
+		if surface_texture.status != .Success_Optimal && surface_texture.status != .Success_Suboptimal {
 			continue
 		}
 		surface_view := wgpu.texture_create_view(surface_texture.texture)
@@ -93,10 +94,11 @@ main :: proc() {
 			color_attachments = {
 				wgpu.Render_Pass_Color_Attachment {
 					view = surface_view,
-					load_op = .Clear,
-					store_op = .Store,
-					depth_slice = max(u32),
-					clear_value = wgpu.Color { 0, 0, 0, 1 },
+					ops = wgpu.Operations(wgpu.Color) {
+						load = .Clear,
+						store = .Store,
+						clear_value = wgpu.Color { 0, 0, 0, 1 },
+					},
 				},
 			},
 		})

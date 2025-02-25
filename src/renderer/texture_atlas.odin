@@ -5,7 +5,7 @@ import "core:fmt"
 import "core:slice"
 import vmem "core:mem/virtual"
 import rp "vendor:stb/rect_pack"
-import wgpu "shared:wgpu/wrapper"
+import "shared:wgpu"
 
 Texture_Atlas_Descriptor :: struct {
 	internal_format: wgpu.Texture_Format,
@@ -55,10 +55,7 @@ textureatlas_create :: proc(
 	texture, texture_ok := wgpu.device_create_texture(
 		core.device,
 		wgpu.Texture_Descriptor {
-			label = fmt.ctprintf(
-				"%v Texture Atlas",
-				descriptor.internal_format,
-			),
+			label = fmt.tprintf("%v Texture Atlas", descriptor.internal_format),
 			usage = { .Copy_Dst, .Texture_Binding },
 			dimension = .D2,
 			size = wgpu.Extent_3D {
@@ -281,7 +278,7 @@ textureatlas_upload_pending :: proc(atlas: ^Texture_Atlas) -> Renderer_Result {
 
 		write_ok := wgpu.queue_write_texture(
 			atlas.core.queue,
-			wgpu.Image_Copy_Texture {
+			wgpu.Texel_Copy_Texture_Info {
 				texture = atlas.backing_texture,
 				mip_level = 0,
 				origin = wgpu.Origin_3D {
@@ -292,7 +289,7 @@ textureatlas_upload_pending :: proc(atlas: ^Texture_Atlas) -> Renderer_Result {
 				aspect = .All,
 			},
 			data_to_upload,
-			wgpu.Texture_Data_Layout {
+			wgpu.Texel_Copy_Buffer_Layout {
 				offset = 0,
 				bytes_per_row = texture_info.size.x * cast(u32)atlas.pixel_stride,
 				rows_per_image = texture_info.size.y,
