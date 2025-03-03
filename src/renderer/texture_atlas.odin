@@ -256,7 +256,7 @@ multitextureatlas_upload_pending :: proc(
 		log.debugf(
 			"Multi_Texture_Atlas (%s): uploading texture %d to backing texture #%d...",
 			atlas.texture_format,
-			atlas.last_packed_texture_idx + i,
+			atlas.last_uploaded_texture_idx + i,
 			texture_info.assigned_texture_idx,
 		)
 
@@ -290,7 +290,7 @@ multitextureatlas_upload_pending :: proc(
 			log.errorf(
 				"Multi_Texture_Atlas (%s): could not upload texture %d...",
 				atlas.texture_format,
-				atlas.last_packed_texture_idx + i,
+				atlas.last_uploaded_texture_idx + i,
 			)
 			texture_info.status = .Upload_Failed
 		} else {
@@ -447,12 +447,10 @@ multitextureatlas_try_pack_to_texture :: proc(
 	defer vmem.arena_temp_end(arena_temp)
 
 	new_textures_to_pack := len(atlas.texture_info) - atlas.last_packed_texture_idx
-	already_packed_textures := len(atlas.packed_rects[texture_idx])
 
-	rects := make([]rp.Rect, already_packed_textures + new_textures_to_pack, atlas.core.frame_allocator) or_return
-	rects_count := already_packed_textures
+	rects := make([]rp.Rect, new_textures_to_pack, atlas.core.frame_allocator) or_return
+	rects_count := 0
 
-	copy(rects, atlas.packed_rects[texture_idx][:])
 	for new_texture_info, i in atlas.texture_info[atlas.last_packed_texture_idx:] {
 		assert(
 			new_texture_info.status != .Uploaded,
@@ -470,16 +468,13 @@ multitextureatlas_try_pack_to_texture :: proc(
 		}
 		rects_count += 1
 	}
-	if rects_count == already_packed_textures {
+	if rects_count == 0 {
 		return true, nil
 	}
-	log.infof("%#v", rects)
 
 	did_pack_all = cast(bool)rp.pack_rects(&atlas.packers[texture_idx], raw_data(rects), cast(i32)rects_count)
 
-	log.infof("%#v", rects)
-
-	for rect in rects[already_packed_textures:rects_count] {
+	for rect in rects[:rects_count] {
 		if !rect.was_packed {
 			continue
 		}
