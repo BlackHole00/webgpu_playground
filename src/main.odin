@@ -43,7 +43,7 @@ main :: proc() {
 		textures_size = { 4098, 4098 },
 		max_texture_count = 64,
 		pixel_size = 4,
-		border_size = 1,
+		border_size = 2,
 	}, &core)
 
 	mech3_file, _ := os.read_entire_file("res/textures/mech3.png", context.temp_allocator)
@@ -67,16 +67,13 @@ main :: proc() {
 	renderer.multitextureatlas_add_texture(&atlas, mech3_data, { cast(u32)size.x, cast(u32)size.y })
 	renderer.multitextureatlas_add_texture(&atlas, mech3_data, { cast(u32)size.x, cast(u32)size.y })
 	renderer.multitextureatlas_add_texture(&atlas, mech3_data, { cast(u32)size.x, cast(u32)size.y })
-	renderer.multitextureatlas_pack_pending(&atlas)
 	renderer.multitextureatlas_add_texture(&atlas, mech3_data, { cast(u32)size.x, cast(u32)size.y })
 	renderer.multitextureatlas_add_texture(&atlas, mech3_data, { cast(u32)size.x, cast(u32)size.y })
 	renderer.multitextureatlas_add_texture(&atlas, mech3_data, { cast(u32)size.x, cast(u32)size.y })
 	renderer.multitextureatlas_add_texture(&atlas, mech3_data, { cast(u32)size.x, cast(u32)size.y })
-	renderer.multitextureatlas_pack_pending(&atlas)
 	renderer.multitextureatlas_add_texture(&atlas, mech3_data, { cast(u32)size.x, cast(u32)size.y })
-	renderer.multitextureatlas_pack_pending(&atlas)
 	renderer.multitextureatlas_add_texture(&atlas, mech3_data, { cast(u32)size.x, cast(u32)size.y })
-	renderer.multitextureatlas_pack_pending(&atlas)
+	renderer.multitextureatlas_add_texture(&atlas, mech3_data, { cast(u32)size.x, cast(u32)size.y })
 
 	renderer.multitextureatlas_upload_pending(&atlas)
 

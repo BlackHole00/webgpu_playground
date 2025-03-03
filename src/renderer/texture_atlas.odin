@@ -211,14 +211,14 @@ multitextureatlas_pack_pending :: proc(
 
 	if !did_pack_all {
 		log.warnf(
-			"Multi_Texture_Atlas (%s): could not pack all textures. Failed to unpack:",
+			"Multi_Texture_Atlas (%s): could not pack all textures. Failed to pack:",
 			atlas.texture_format,
 		)
 	}
 
 	for &texture_info, texture_idx in atlas.texture_info[atlas.last_packed_texture_idx:] {
 		if texture_info.status == .Packing_Pending {
-			log.warnf("\t- %d", atlas.last_packed_texture_idx + texture_idx)
+			log.warnf("\t- Texture %d", atlas.last_packed_texture_idx + texture_idx)
 			texture_info.status = .Packing_Failed
 			texture_info.texture_data = nil
 		}
@@ -463,8 +463,8 @@ multitextureatlas_try_pack_to_texture :: proc(
 
 		rects[rects_count] = rp.Rect {
 			id = cast(i32)(atlas.last_packed_texture_idx + i),
-			w = cast(rp.Coord)new_texture_info.size.x,
-			h = cast(rp.Coord)new_texture_info.size.y,
+			w = cast(rp.Coord)new_texture_info.size.x + cast(rp.Coord)atlas.border_size,
+			h = cast(rp.Coord)new_texture_info.size.y + cast(rp.Coord)atlas.border_size,
 		}
 		rects_count += 1
 	}
