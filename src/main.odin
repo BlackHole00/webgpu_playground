@@ -22,10 +22,14 @@ main :: proc() {
 
 	core: renderer.Renderer_Core
 	assert(renderer.renderercore_create(&core, renderer.Renderer_Core_Descriptor {
-		debug = true,
+		debug = false,
 		validation = true,
-		trace = true,
-		features = { .Multi_Draw_Indirect },
+		trace = false,
+		features = {
+			.Multi_Draw_Indirect,
+			.Texture_Binding_Array,
+			.Partially_Bound_Binding_Array,
+		},
 		logger = context.logger,
 		window_handle = window,
 	}) == nil)
@@ -33,11 +37,11 @@ main :: proc() {
 
 	renderer.renderercore_configure_surface(&core)
 
-	atlas: renderer.Texture_Atlas
-	renderer.textureatlas_create(&atlas, renderer.Texture_Atlas_Descriptor {
-		internal_format = .Rgba8_Unorm,
-		atlas_size = { 4098, 4098 },
-		pixel_stride = 4,
+	atlas: renderer.Multi_Texture_Atlas
+	renderer.multitextureatlas_create(&atlas, renderer.Multi_Texture_Atlas_Descriptor {
+		texture_format = .Rgba8_Unorm,
+		textures_size = { 4098, 4098 },
+		max_texture_count = 64,
 		pixel_size = 4,
 		border_size = 1,
 	}, &core)
@@ -57,28 +61,33 @@ main :: proc() {
 	assert(channels == 4)
 
 	mech3_data := mem.slice_ptr(mech3_image, cast(int)(size.x * size.y * channels))
-	renderer.textureatlas_add_texture(&atlas, mech3_data, { cast(u32)size.x, cast(u32)size.y })
-	renderer.textureatlas_add_texture(&atlas, mech3_data, { cast(u32)size.x, cast(u32)size.y })
-	renderer.textureatlas_add_texture(&atlas, mech3_data, { cast(u32)size.x, cast(u32)size.y })
-	renderer.textureatlas_add_texture(&atlas, mech3_data, { cast(u32)size.x, cast(u32)size.y })
-	renderer.textureatlas_add_texture(&atlas, mech3_data, { cast(u32)size.x, cast(u32)size.y })
-	renderer.textureatlas_add_texture(&atlas, mech3_data, { cast(u32)size.x, cast(u32)size.y })
-	renderer.textureatlas_add_texture(&atlas, mech3_data, { cast(u32)size.x, cast(u32)size.y })
-	renderer.textureatlas_add_texture(&atlas, mech3_data, { cast(u32)size.x, cast(u32)size.y })
-	renderer.textureatlas_add_texture(&atlas, mech3_data, { cast(u32)size.x, cast(u32)size.y })
-	renderer.textureatlas_add_texture(&atlas, mech3_data, { cast(u32)size.x, cast(u32)size.y })
-	renderer.textureatlas_add_texture(&atlas, mech3_data, { cast(u32)size.x, cast(u32)size.y })
-	renderer.textureatlas_add_texture(&atlas, mech3_data, { cast(u32)size.x, cast(u32)size.y })
+	renderer.multitextureatlas_add_texture(&atlas, mech3_data, { cast(u32)size.x, cast(u32)size.y })
+	renderer.multitextureatlas_add_texture(&atlas, mech3_data, { cast(u32)size.x, cast(u32)size.y })
+	renderer.multitextureatlas_add_texture(&atlas, mech3_data, { cast(u32)size.x, cast(u32)size.y })
+	renderer.multitextureatlas_add_texture(&atlas, mech3_data, { cast(u32)size.x, cast(u32)size.y })
+	renderer.multitextureatlas_add_texture(&atlas, mech3_data, { cast(u32)size.x, cast(u32)size.y })
+	renderer.multitextureatlas_add_texture(&atlas, mech3_data, { cast(u32)size.x, cast(u32)size.y })
+	renderer.multitextureatlas_pack_pending(&atlas)
+	renderer.multitextureatlas_add_texture(&atlas, mech3_data, { cast(u32)size.x, cast(u32)size.y })
+	renderer.multitextureatlas_add_texture(&atlas, mech3_data, { cast(u32)size.x, cast(u32)size.y })
+	renderer.multitextureatlas_add_texture(&atlas, mech3_data, { cast(u32)size.x, cast(u32)size.y })
+	renderer.multitextureatlas_add_texture(&atlas, mech3_data, { cast(u32)size.x, cast(u32)size.y })
+	renderer.multitextureatlas_pack_pending(&atlas)
+	renderer.multitextureatlas_add_texture(&atlas, mech3_data, { cast(u32)size.x, cast(u32)size.y })
+	renderer.multitextureatlas_pack_pending(&atlas)
+	renderer.multitextureatlas_add_texture(&atlas, mech3_data, { cast(u32)size.x, cast(u32)size.y })
+	renderer.multitextureatlas_pack_pending(&atlas)
+
+	renderer.multitextureatlas_upload_pending(&atlas)
+
+	for i in 0..=11 {
+		log.info(i, renderer.multitextureatlas_get_texture_absolute_position(atlas, cast(renderer.Multi_Texture_Atlas_Texture_Id)i))
+	}
 
 	for !glfw.WindowShouldClose(window) {
 		if glfw.GetKey(window, glfw.KEY_ESCAPE) == glfw.PRESS {
 			glfw.SetWindowShouldClose(window, true)
 		}
-
-		renderer.textureatlas_upload_pending(&atlas)
-
-		view := wgpu.texture_create_view(atlas.backing_texture)
-		defer wgpu.texture_view_release(view)
 
 		surface_texture, _ := wgpu.surface_get_current_texture(core.surface)
 		defer wgpu.surface_texture_release(surface_texture)

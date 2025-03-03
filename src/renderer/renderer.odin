@@ -9,9 +9,13 @@ Renderer_Error :: enum {
 	Could_Not_Create_Adapter,
 	Could_Not_Create_Device,
 	Could_Not_Create_Texture,
+	Could_Not_Create_Texture_View,
 	Could_Not_Query_Adapter_Info,
 	Could_Not_Query_Device_Info,
 	Could_Not_Configure_Surface,
+	Could_Not_Write_Resource,
+	Resources_Out_Of_Memory,
+	Input_Too_Big,
 	Required_Adapter_Feature_Not_Present,
 }
 
