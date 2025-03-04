@@ -253,50 +253,8 @@ multitextureatlas_upload_pending :: proc(
 			continue
 		}
 
-		log.debugf(
-			"Multi_Texture_Atlas (%s): uploading texture %d to backing texture #%d...",
-			atlas.texture_format,
-			atlas.last_uploaded_texture_idx + i,
-			texture_info.assigned_texture_idx,
-		)
-
-		texture_rect := atlas.packed_rects[texture_info.assigned_texture_idx][texture_info.assigned_rect_idx]
-
-		write_ok := wgpu.queue_write_texture(
-			atlas.core.queue,
-			wgpu.Texel_Copy_Texture_Info {
-				texture = atlas.backing_textures[texture_info.assigned_texture_idx],
-				mip_level = 0,
-				origin = wgpu.Origin_3D {
-					x = cast(u32)texture_rect.x,
-					y = cast(u32)texture_rect.y,
-					z = 0,
-				},
-			},
-			texture_info.texture_data,
-			wgpu.Texel_Copy_Buffer_Layout {
-				offset = 0,
-				bytes_per_row = cast(u32)atlas.pixel_size * texture_info.size.x,
-				rows_per_image = texture_info.size.y,
-			},
-			size = wgpu.Extent_3D {
-				width = texture_info.size.x,
-				height = texture_info.size.y,
-				depth_or_array_layers = 1,
-			},
-		)
-
-		if !write_ok {
-			log.errorf(
-				"Multi_Texture_Atlas (%s): could not upload texture %d...",
-				atlas.texture_format,
-				atlas.last_uploaded_texture_idx + i,
-			)
-			texture_info.status = .Upload_Failed
-		} else {
-			texture_info.status = .Uploaded
-		}
-		texture_info.texture_data = nil
+		texture_id := cast(Multi_Texture_Atlas_Texture_Id)(atlas.last_uploaded_texture_idx + i)
+		multitextureatlas_upload_texture(atlas, texture_id)
 	}
 
 	atlas.last_uploaded_texture_idx = len(atlas.texture_info) - 1
@@ -583,3 +541,62 @@ multitextureatlas_allocate_new_backing_texture :: proc(
  
 	return nil
 }
+
+@(private="file")
+multitextureatlas_upload_texture :: proc(
+	atlas: ^Multi_Texture_Atlas,
+	texture: Multi_Texture_Atlas_Texture_Id,
+) -> bool {
+	texture_info := &atlas.texture_info[texture]
+
+	assert(atlas != nil)
+	assert(texture_info.status == .Upload_Pending, "Cannot upload a texture that is not .Upload_Pending")
+
+	log.debugf(
+		"Multi_Texture_Atlas (%s): uploading texture %d to backing texture #%d...",
+		atlas.texture_format,
+		texture,
+		texture_info.assigned_texture_idx,
+	)
+
+	texture_rect := atlas.packed_rects[texture_info.assigned_texture_idx][texture_info.assigned_rect_idx]
+
+	write_ok := wgpu.queue_write_texture(
+		atlas.core.queue,
+		wgpu.Texel_Copy_Texture_Info {
+			texture = atlas.backing_textures[texture_info.assigned_texture_idx],
+			mip_level = 0,
+			origin = wgpu.Origin_3D {
+				x = cast(u32)texture_rect.x,
+				y = cast(u32)texture_rect.y,
+				z = 0,
+			},
+		},
+		texture_info.texture_data,
+		wgpu.Texel_Copy_Buffer_Layout {
+			offset = 0,
+			bytes_per_row = cast(u32)atlas.pixel_size * texture_info.size.x,
+			rows_per_image = texture_info.size.y,
+		},
+		size = wgpu.Extent_3D {
+			width = texture_info.size.x,
+			height = texture_info.size.y,
+			depth_or_array_layers = 1,
+		},
+	)
+	if !write_ok {
+		log.errorf(
+			"Multi_Texture_Atlas (%s): could not upload texture %d...",
+			atlas.texture_format,
+			texture,
+		)
+
+		texture_info.status = .Upload_Failed
+	} else {
+		texture_info.status = .Uploaded
+	}
+	texture_info.texture_data = nil
+
+	return write_ok
+}
+
